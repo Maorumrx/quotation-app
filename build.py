@@ -40,5 +40,16 @@ cmd = [
     "app.py",
 ]
 
-print("รันคำสั่ง:\n ", " ".join(cmd), "\n")
-raise SystemExit(subprocess.call(cmd))
+LOG_FILE = "pyinstaller-output.log"
+
+print("รันคำสั่ง:\n ", " ".join(cmd), "\n", flush=True)
+
+# จับ output ทั้งหมด (stdout+stderr) เขียนลงไฟล์เสมอ เผื่อ PyInstaller ตายกลางคัน
+# จะได้มี log จริงไว้ให้ CI upload / ดูสาเหตุ (ไม่พึ่ง warn-*.txt ที่บางทีไม่ถูกเขียน)
+proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+output = proc.stdout or ""
+print(output, flush=True)
+with open(LOG_FILE, "w", encoding="utf-8") as f:
+    f.write(output)
+
+raise SystemExit(proc.returncode)

@@ -34,13 +34,25 @@ jobs:
       - name: Build
         run: python build.py
 
-      # ถ้า build ล้ม ให้เก็บ log ของ PyInstaller ไว้ดาวน์โหลดมาดูสาเหตุจริงได้
+      # ถ้า build ล้ม เอา log จริงไปแปะบนหน้าสรุปของ run เลย (จะได้ไม่ต้องไล่กดหา)
+      - name: Show build log on failure
+        if: failure()
+        shell: bash
+        run: |
+          echo '### PyInstaller output (Windows/macOS build)' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 80 pyinstaller-output.log >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo 'no pyinstaller-output.log found' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      # และเก็บ log เต็มไว้ดาวน์โหลดได้ด้วย
       - name: Upload build log on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: build-log-${{ matrix.os }}
-          path: build/**/warn-*.txt
+          path: |
+            pyinstaller-output.log
+            build/**/warn-*.txt
           if-no-files-found: ignore
 
       - name: Upload artifact
