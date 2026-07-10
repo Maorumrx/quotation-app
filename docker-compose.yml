@@ -1,0 +1,23 @@
+# ใช้:  docker compose up --build   แล้วเปิด http://127.0.0.1:8000
+#
+# เอกสารเก็บเป็นไฟล์ JSON บน host (โฟลเดอร์ ./data ค่าเริ่มต้น) จะไม่หายเวลาลบ container
+# ไม่ต้องตั้งค่าอะไรก่อนก็รันได้เลย
+
+services:
+  quotation:
+    build: .
+    image: quotation-manager:dev
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      PORT: 8000
+    volumes:
+      # โฟลเดอร์เก็บเอกสาร (read-write) → map เข้าที่เก็บข้อมูลของ user `app` ใน container
+      - ${QM_DATA_DIR:-./data}:/home/app/.quotation-manager/data
+    restart: unless-stopped
+
+    # ---- โหมด dev (live reload): ปลด comment เพื่อ mount ซอร์สทับ + auto reload ----
+    # command: sh -c "python -m uvicorn backend.server:app --host 0.0.0.0 --port 8000 --reload"
+    # volumes:
+    #   - ${QM_DATA_DIR:-./data}:/home/app/.quotation-manager/data
+    #   - ./:/app

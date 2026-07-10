@@ -119,7 +119,7 @@
 <body>
 
 <div class="toolbar">
-  <div class="tt"><span class="status-dot" id="statusDot" title="สถานะ Google Sheet"></span> 🧾 จัดการเอกสาร</div>
+  <div class="tt"><span class="status-dot" id="statusDot" title="สถานะที่เก็บข้อมูล"></span> 🧾 จัดการเอกสาร</div>
   <div class="grp">
     <button class="btn-ghost" onclick="openDrawer()">📁 เอกสารทั้งหมด</button>
     <button class="btn-ghost" onclick="newDocument()">🆕 สร้างใหม่</button>
@@ -460,8 +460,8 @@
   /* ---------- health dot ---------- */
   (async function(){
     try{ const r=await fetch('/api/health'); const j=await r.json();
-      document.getElementById('statusDot').className='status-dot '+(j.sheet_ok?'ok':'err');
-      document.getElementById('statusDot').title=j.sheet_ok?'เชื่อม Google Sheet ได้':('Sheet: '+(j.message||'ยังไม่พร้อม'));
+      document.getElementById('statusDot').className='status-dot '+(j.ok?'ok':'err');
+      document.getElementById('statusDot').title=j.ok?'บันทึกข้อมูลลงเครื่องได้':('เก็บข้อมูล: '+(j.message||'ยังไม่พร้อม'));
     }catch(e){ document.getElementById('statusDot').className='status-dot err'; }
   })();
 

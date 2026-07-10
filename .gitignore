@@ -5,3 +5,5 @@ dist/
 *.spec
 config.json
 credentials.json
+data/
+.qm-config/

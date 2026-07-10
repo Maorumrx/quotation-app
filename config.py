@@ -3,9 +3,9 @@ config.py
 โหลดค่า config + จัดการ path ให้ทำงานได้ทั้งตอนรันจากซอร์ส (python app.py)
 และตอน build เป็น .exe / .app แล้ว (PyInstaller frozen)
 
-ที่วางไฟล์ตั้งค่า/ลับ: ~/.quotation-manager/
-  - config.json
-  - credentials.json
+ที่วางไฟล์ตั้งค่า + ข้อมูล: ~/.quotation-manager/
+  - config.json         (ไม่บังคับ — ปรับ data_dir ได้)
+  - data/*.json         (เอกสาร 1 ไฟล์ต่อ 1 ใบ)
 (ใช้โฟลเดอร์ home เพราะ .exe (Windows) กับ .app (macOS) วางไฟล์คนละที่กัน
  การชี้มา home ทำให้ทั้งสอง OS หาไฟล์เจอเหมือนกัน)
 """
@@ -16,10 +16,7 @@ import sys
 APP_FOLDER = ".quotation-manager"
 
 _DEFAULTS = {
-    "sheet_id": "PUT_YOUR_GOOGLE_SHEET_ID_HERE",
-    "documents_tab": "documents",
-    "items_tab": "items",
-    "credentials_file": "credentials.json",
+    "data_dir": "",   # ว่าง = ใช้ ~/.quotation-manager/data
 }
 
 
@@ -46,19 +43,9 @@ def resource_path(rel: str) -> str:
     return os.path.join(base, rel)
 
 
-def _drop_example():
-    """ยังไม่มี config -> วางไฟล์ตัวอย่างไว้ให้ในโฟลเดอร์ home ผู้ใช้จะได้รู้ว่าต้องแก้ที่ไหน"""
-    try:
-        p = os.path.join(user_config_dir(), "config.example.json")
-        if not os.path.exists(p):
-            with open(p, "w", encoding="utf-8") as f:
-                json.dump(_DEFAULTS, f, ensure_ascii=False, indent=2)
-    except Exception:  # noqa: BLE001
-        pass
-
-
 def load_config() -> dict:
-    """อ่าน config.json จาก ~/.quotation-manager/ ก่อน แล้วค่อย fallback ที่ข้างๆ ตัวโปรแกรม"""
+    """อ่าน config.json จาก ~/.quotation-manager/ ก่อน แล้วค่อย fallback ที่ข้างๆ ตัวโปรแกรม
+    (config.json ไม่บังคับ — ไม่มีก็ใช้ค่า default ได้เลย)"""
     cfg = dict(_DEFAULTS)
     for p in (os.path.join(user_config_dir(), "config.json"),
               os.path.join(app_dir(), "config.json")):
@@ -70,18 +57,15 @@ def load_config() -> dict:
                 return cfg
             except Exception as e:  # noqa: BLE001
                 print(f"[config] อ่าน {p} ไม่ได้: {e}")
-    _drop_example()
     return cfg
 
 
-def credentials_path(cfg: dict) -> str:
-    """หา credentials.json: env -> ~/.quotation-manager/ -> ข้างๆ ตัวโปรแกรม"""
-    env = os.environ.get("GSPREAD_CREDENTIALS")
-    if env and os.path.exists(env):
+def data_dir(cfg: dict) -> str:
+    """โฟลเดอร์เก็บเอกสาร: env QM_DATA_DIR -> config.data_dir -> ~/.quotation-manager/data"""
+    env = os.environ.get("QM_DATA_DIR")
+    if env:
         return env
-    name = cfg.get("credentials_file", "credentials.json")
-    for base in (user_config_dir(), app_dir()):
-        p = os.path.join(base, name)
-        if os.path.exists(p):
-            return p
-    return os.path.join(user_config_dir(), name)
+    d = (cfg.get("data_dir") or "").strip()
+    if d:
+        return os.path.expanduser(d)
+    return os.path.join(user_config_dir(), "data")

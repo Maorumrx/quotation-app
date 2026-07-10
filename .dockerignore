@@ -1,0 +1,16 @@
+# ข้อมูล/คอนฟิกเฉพาะเครื่อง — ไม่เข้า image (mount ตอน run แทน)
+config.json
+data/
+
+# dev / build artifacts
+.venv/
+__pycache__/
+*.pyc
+*.spec
+build/
+dist/
+
+# vcs / misc
+.git/
+.gitignore
+.DS_Store
