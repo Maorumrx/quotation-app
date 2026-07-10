@@ -37,8 +37,37 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
+      # กัน footgun: ถ้า tag ที่ push ไม่ตรงกับ APP_VERSION ใน config.py
+      # ตัวโปรแกรมจะรายงานเวอร์ชันผิด แล้วเด้งเตือน "อัปเดต" ใส่ build ตัวเอง — ล้มให้รู้ตัวก่อน
+      - name: Verify APP_VERSION matches tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          py_ver=$(python -c "import config; print(config.APP_VERSION)")
+          want="${GITHUB_REF_NAME#v}"
+          if [ "$py_ver" != "$want" ]; then
+            echo "::error::APP_VERSION ($py_ver) != tag ($want) — bump config.py ก่อน tag"
+            exit 1
+          fi
+          echo "version OK: $py_ver == $want"
+
       - name: Build
         run: python build.py
+
+      # เตรียมไฟล์แจกจ่ายบน runner ของ OS นั้นๆ (สำคัญ: zip .app ที่นี่ ไม่ใช่บน Linux
+      # runner ตอน release — ไม่งั้น executable bit ของ Mach-O bootloader หลุด แอปเปิดไม่ขึ้น)
+      - name: Prepare release asset
+        shell: bash
+        run: |
+          set -e
+          mkdir -p out
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cp dist/QuotationManager.exe "out/QuotationManager-Windows.exe"
+          else
+            # ditto เก็บ permission + resource fork ครบกว่า zip; --keepParent = ห่อ .app ทั้งอัน
+            ditto -c -k --keepParent dist/QuotationManager.app "out/QuotationManager-macOS.zip"
+          fi
+          ls -la out
 
       # ถ้า build ล้ม เอา log จริงไปแปะบนหน้าสรุปของ run เลย (จะได้ไม่ต้องไล่กดหา)
       - name: Show build log on failure
@@ -65,5 +94,50 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: dist/*
+          path: out/*
           if-no-files-found: error
+
+  # เมื่อ push tag (v*): รวมไฟล์ทั้งสอง OS แล้วสร้าง GitHub Release
+  # ให้ดาวน์โหลดได้ด้วยลิงก์สาธารณะถาวร (ไม่ต้อง login, ไม่หมดอายุ)
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download built artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Package assets & create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -e
+          shopt -s nullglob
+          mkdir -p out
+          # ไฟล์ถูก zip/เตรียมมาแล้วจาก runner ของแต่ละ OS — แค่ติดชื่อ tag ต่อท้าย
+          for f in artifacts/*/*; do
+            base=$(basename "$f")
+            cp "$f" "out/${base%.*}-${TAG}.${base##*.}"
+          done
+          assets=(out/*)
+          if [ ${#assets[@]} -eq 0 ]; then
+            echo "::error::ไม่พบไฟล์แจกจ่าย — build อาจไม่สำเร็จ"; exit 1
+          fi
+          echo "assets:"; ls -la out
+          # notes ผ่านไฟล์เพื่อให้ขึ้นบรรทัดจริง (bash ไม่แปลง \n ใน double-quote)
+          cat > release-notes.md <<'EOF'
+          ดาวน์โหลด: Windows = ไฟล์ .exe (ดับเบิลคลิกเปิดได้เลย), macOS = ไฟล์ .zip แล้วแตกเอา .app ออกมา
+
+          ข้อมูลเก่าไม่หาย — เก็บแยกที่ ~/.quotation-manager/ ทับตัวโปรแกรมเก่าได้เลย
+          EOF
+          # idempotent: ถ้ารัน workflow ซ้ำบน tag เดิม ลบ release เก่าก่อน (คง tag ไว้)
+          gh release delete "$TAG" -y --cleanup-tag=false --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+          gh release create "$TAG" "${assets[@]}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$TAG" \
+            --notes-file release-notes.md

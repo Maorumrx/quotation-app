@@ -34,6 +34,12 @@
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
   .toast.err{ background:#9B4230; }
 
+  /* แถบแจ้งเตือนเวอร์ชันใหม่ */
+  .updatebar{ display:none; align-items:center; gap:12px; background:#2f5d3a; color:#fff; padding:8px 16px; font-family:'Sarabun'; font-size:13px; }
+  .updatebar.show{ display:flex; }
+  .updatebar button{ font-family:'Sarabun'; font-weight:600; font-size:12.5px; border:none; border-radius:7px; padding:5px 12px; cursor:pointer; background:#fff; color:#2f5d3a; }
+  .updatebar button.x{ background:transparent; color:#fff; margin-left:auto; padding:5px 8px; }
+
   /* drawer รายการเอกสาร */
   .drawer-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:150; display:none; }
   .drawer-backdrop.open{ display:block; }
@@ -159,6 +165,13 @@
   </div>
 </div>
 
+<!-- แถบแจ้งเตือนเวอร์ชันใหม่ -->
+<div class="updatebar no-print" id="updateBar">
+  <span id="updateMsg"></span>
+  <button onclick="openRelease()">⬇️ ดาวน์โหลด</button>
+  <button class="x" onclick="document.getElementById('updateBar').classList.remove('show')" title="ปิด">✕</button>
+</div>
+
 <!-- drawer -->
 <div class="drawer-backdrop" id="backdrop" onclick="closeDrawer()"></div>
 <div class="drawer" id="drawer">
@@ -168,6 +181,7 @@
     <button class="btn-folder" onclick="openDataDir()">📂 เปิดโฟลเดอร์ข้อมูล</button>
     <div class="path" id="dataDirPath"></div>
     <button class="btn-danger" onclick="askClearAll()">🗑️ ล้างข้อมูลทั้งหมด (รีเซ็ตเลขรัน)</button>
+    <div class="path" id="appVersion"></div>
   </div>
 </div>
 
@@ -630,6 +644,24 @@
     }catch(e){ toast('ล้างข้อมูลไม่ได้: '+e.message,true); }
   }
 
+  /* ---------- เวอร์ชัน + เช็คอัปเดต ---------- */
+  async function loadVersion(){
+    try{ const r=await fetch('/api/version'); const j=await r.json(); document.getElementById('appVersion').textContent='เวอร์ชัน '+(j.version||'-'); }catch(e){}
+  }
+  async function checkUpdate(){
+    try{
+      const r=await fetch('/api/check-update'); const j=await r.json();
+      if(j.update_available && j.latest){
+        document.getElementById('updateMsg').textContent='🎉 มีเวอร์ชันใหม่ v'+j.latest+' (คุณใช้ v'+j.current+') — ข้อมูลเก่าไม่หาย';
+        document.getElementById('updateBar').classList.add('show');
+      }
+    }catch(e){}
+  }
+  async function openRelease(){
+    try{ await fetch('/api/open-release',{method:'POST'}); toast('เปิดหน้าดาวน์โหลดในเบราว์เซอร์แล้ว'); }
+    catch(e){ toast('เปิดลิงก์ไม่ได้',true); }
+  }
+
   /* ---------- health dot ---------- */
   (async function(){
     try{ const r=await fetch('/api/health'); const j=await r.json();
@@ -638,6 +670,8 @@
     }catch(e){ document.getElementById('statusDot').className='status-dot err'; }
   })();
 
+  loadVersion();
+  checkUpdate();
   recalc();
 </script>
 </body>

@@ -3,16 +3,55 @@ backend/server.py
 FastAPI: เสิร์ฟหน้า HTML + API สำหรับ list / load / save / delete / เลขถัดไป
 ที่เก็บข้อมูล = ไฟล์ JSON ในเครื่อง (ดู backend/store.py)
 """
+import json as _json
 import os
 import subprocess
 import sys
+import webbrowser
+from urllib.request import Request, urlopen
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 
-from config import data_dir, load_config, resource_path
+from config import APP_VERSION, data_dir, load_config, resource_path
 from .models import DocumentPayload
 from .store import DocumentStore, StoreError
+
+# หน้า/asset ของ GitHub สำหรับเช็คเวอร์ชันใหม่
+_REPO = "Maorumrx/quotation-app"
+_LATEST_RELEASE_API = f"https://api.github.com/repos/{_REPO}/releases/latest"
+_RELEASES_PAGE = f"https://github.com/{_REPO}/releases/latest"
+
+
+def _ver_tuple(v: str):
+    out = []
+    for p in (v or "").lstrip("v").split("."):
+        try:
+            out.append(int(p))
+        except ValueError:
+            out.append(0)
+    return tuple(out)
+
+
+def _is_newer(latest: str, current: str) -> bool:
+    """latest ใหม่กว่า current ไหม — pad ให้ยาวเท่ากันก่อน กัน 1.0 < 1.0.0 ผิดพลาด"""
+    if not latest:
+        return False
+    a, b = _ver_tuple(latest), _ver_tuple(current)
+    n = max(len(a), len(b))
+    a += (0,) * (n - len(a))
+    b += (0,) * (n - len(b))
+    return a > b
+
+
+def _fetch_latest_release():
+    """คืน (tag, html_url) ของ release ล่าสุด หรือ (None, page) ถ้ายังไม่มี/เน็ตล่ม"""
+    req = Request(_LATEST_RELEASE_API,
+                  headers={"Accept": "application/vnd.github+json",
+                           "User-Agent": "quotation-app"})
+    with urlopen(req, timeout=6) as r:
+        data = _json.loads(r.read().decode("utf-8"))
+    return (data.get("tag_name") or "").lstrip("v"), (data.get("html_url") or _RELEASES_PAGE)
 
 app = FastAPI(title="Quotation Manager")
 
@@ -114,3 +153,38 @@ def clear_all():
         return {"ok": True, **result}
     except StoreError as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/version")
+def version():
+    return {"version": APP_VERSION}
+
+
+@app.get("/api/check-update")
+def check_update():
+    """เทียบเวอร์ชันปัจจุบันกับ GitHub Release ล่าสุด (ไม่ล่มถ้าเน็ตมีปัญหา)"""
+    try:
+        latest, url = _fetch_latest_release()
+    except Exception as e:  # noqa: BLE001  (เน็ตล่ม/ยังไม่มี release -> ไม่ต้องเตือน)
+        return {"current": APP_VERSION, "latest": "", "update_available": False,
+                "url": _RELEASES_PAGE, "error": str(e)}
+    return {
+        "current": APP_VERSION,
+        "latest": latest,
+        "update_available": _is_newer(latest, APP_VERSION),
+        "url": url,
+    }
+
+
+@app.post("/api/open-release")
+def open_release():
+    """เปิดหน้า release ล่าสุดในเบราว์เซอร์ (URL ฝั่ง server ตัดสินเอง ไม่รับจาก client)"""
+    try:
+        _, url = _fetch_latest_release()
+    except Exception:  # noqa: BLE001
+        url = _RELEASES_PAGE
+    try:
+        webbrowser.open(url)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"เปิดลิงก์ไม่ได้: {e}")
+    return {"ok": True, "url": url}
