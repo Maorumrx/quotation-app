@@ -43,6 +43,21 @@
   .drawer .dh{ background:var(--clay); color:#fff; padding:14px 16px; font-family:'KoHo'; font-weight:600; display:flex; justify-content:space-between; align-items:center; }
   .drawer .dh button{ background:transparent; border:none; color:#fff; font-size:18px; cursor:pointer; }
   .drawer .dlist{ overflow-y:auto; flex:1; }
+  .drawer .dfoot{ border-top:1px solid #eee; padding:12px; display:flex; flex-direction:column; gap:8px; }
+  .drawer .dfoot button{ font-family:'Sarabun'; font-weight:600; font-size:12.5px; border:none; border-radius:8px; padding:9px 12px; cursor:pointer; text-align:left; }
+  .btn-folder{ background:var(--accent); color:var(--clay); border:1px solid var(--clay2)!important; }
+  .btn-danger{ background:#9B4230; color:#fff; }
+  .dfoot .path{ font-size:10.5px; color:var(--muted); word-break:break-all; line-height:1.5; }
+  /* กล่องยืนยันล้างข้อมูล (ใช้ <dialog> เพราะ window.confirm บาง backend ไม่โชว์) */
+  .cdlg{ border:none; border-radius:14px; padding:0; width:min(92vw,380px); box-shadow:0 12px 40px rgba(0,0,0,.3); }
+  .cdlg::backdrop{ background:rgba(0,0,0,.45); }
+  .cdlg .cbody{ padding:20px 20px 8px; font-family:'Sarabun'; }
+  .cdlg h3{ font-family:'KoHo'; color:#9B4230; margin:0 0 8px; font-size:16px; }
+  .cdlg p{ font-size:13px; color:var(--ink); line-height:1.6; margin:0; }
+  .cdlg code{ background:#f2ede6; padding:1px 5px; border-radius:4px; font-size:11.5px; }
+  .cdlg .cbtns{ display:flex; justify-content:flex-end; gap:8px; padding:14px 20px 18px; }
+  .cdlg .cbtns button{ font-family:'Sarabun'; font-weight:600; font-size:13px; border:none; border-radius:8px; padding:8px 16px; cursor:pointer; }
+  .cdlg .cancel{ background:#eee; color:var(--ink); }
   .doc-item{ padding:11px 16px; border-bottom:1px solid var(--line); cursor:pointer; }
   .doc-item:hover{ background:var(--cream); }
   .doc-item .no{ font-family:'KoHo'; font-weight:600; color:var(--clay); font-size:12.5px; display:flex; justify-content:space-between; }
@@ -103,12 +118,23 @@
 
   .sign{ display:flex; gap:24px; margin-top:8px; }
   .sign .col{ flex:1; text-align:center; }
-  .sign .ln{ border-top:1px dotted var(--ink); margin:30px 8px 6px; }
+  .sign .ln{ border-top:1px dotted var(--ink); margin:6px 8px 6px; }
   .sign .cap{ font-size:8.5pt; color:var(--muted); }
+  .sign .sigimg{ display:none; max-height:56px; max-width:82%; margin:0 auto -6px; }
+  .sign .sigimg.on{ display:block; }
+  .sign .sigslot{ height:44px; display:flex; align-items:flex-end; justify-content:center; }
+  .sigctl{ display:flex; gap:5px; justify-content:center; margin-top:5px; }
+  .sigctl button{ font-family:'Sarabun'; font-size:11px; border:1px solid var(--clay2); background:#fff; color:var(--clay); border-radius:7px; padding:3px 9px; cursor:pointer; }
+
+  /* วันที่: โชว์ข้อความบนเอกสาร + ปุ่มปฏิทินเล็กๆ (ปฏิทินไม่พิมพ์ออกมา) */
+  .datepick{ border:1px solid var(--clay2); background:#fff; border-radius:6px; padding:0 4px; font-family:'Sarabun'; font-size:11px; color:var(--clay); cursor:pointer; margin-left:4px; }
+
+  /* กล่องวาดลายเซ็น */
+  #sigCanvas{ width:100%; aspect-ratio:560/220; height:auto; border:1px solid #ccc; border-radius:8px; background:#fff; touch-action:none; cursor:crosshair; }
 
   @media print{
     body{ background:#fff; }
-    .toolbar,.drawer,.drawer-backdrop,.toast{ display:none !important; }
+    .toolbar,.drawer,.drawer-backdrop,.toast,.cdlg,.no-print{ display:none !important; }
     .page{ width:auto; min-height:auto; margin:0; padding:0; box-shadow:none; }
     [contenteditable="true"]:hover,[contenteditable="true"]:focus{ background:transparent; box-shadow:none; }
     .btn-delrow,.addrow-bar{ display:none !important; }
@@ -138,7 +164,24 @@
 <div class="drawer" id="drawer">
   <div class="dh"><span>📁 เอกสารทั้งหมด</span><button onclick="closeDrawer()">✕</button></div>
   <div class="dlist" id="docList"><div class="empty">กำลังโหลด…</div></div>
+  <div class="dfoot">
+    <button class="btn-folder" onclick="openDataDir()">📂 เปิดโฟลเดอร์ข้อมูล</button>
+    <div class="path" id="dataDirPath"></div>
+    <button class="btn-danger" onclick="askClearAll()">🗑️ ล้างข้อมูลทั้งหมด (รีเซ็ตเลขรัน)</button>
+  </div>
 </div>
+
+<!-- กล่องยืนยันล้างข้อมูล -->
+<dialog class="cdlg" id="confirmClear">
+  <div class="cbody">
+    <h3>⚠️ ล้างข้อมูลทั้งหมด</h3>
+    <p>จะย้ายเอกสาร<b>ทุกปี</b>ไปโฟลเดอร์สำรอง <code>_backup_…</code> แล้วรีเซ็ตเลขรันกลับเป็น <b>0001</b><br><br>ไฟล์ยัง<b>กู้คืนได้</b>จากโฟลเดอร์สำรองภายหลัง</p>
+  </div>
+  <div class="cbtns">
+    <button class="cancel" onclick="document.getElementById('confirmClear').close()">ยกเลิก</button>
+    <button class="btn-danger" onclick="doClearAll()">ล้างข้อมูล</button>
+  </div>
+</dialog>
 
 <div class="page">
   <div class="top">
@@ -152,7 +195,7 @@
       <div class="t" id="docTitle">ใบเสนอราคา</div>
       <div class="meta">
         เลขที่ / No.: <span contenteditable="true" id="docNo" data-field="doc_no">2026 0003</span><br>
-        วันที่ / Date: <span contenteditable="true" data-field="doc_date">___ / ___ / 2569</span>
+        วันที่ / Date: <span contenteditable="true" data-field="doc_date">___ / ___ / 2569</span><input type="date" id="docDatePicker" class="datepick no-print" onchange="onDatePick(this.value)" title="เลือกจากปฏิทิน">
       </div>
       <div id="paidStamp">✓ ชำระเงินแล้ว</div>
     </div>
@@ -225,10 +268,44 @@
   </div>
 
   <div class="sign">
-    <div class="col"><div class="ln"></div><div class="cap" id="signLeft">ผู้เสนอราคา / วันที่</div></div>
-    <div class="col"><div class="ln"></div><div class="cap" id="signRight">ผู้สั่งซื้อ / วันที่</div></div>
+    <div class="col">
+      <div class="sigslot"><img class="sigimg" data-sig="left" alt=""></div>
+      <div class="ln"></div>
+      <div class="cap" id="signLeft">ผู้เสนอราคา / วันที่</div>
+      <div class="sigctl no-print">
+        <button type="button" onclick="openSignPad('left')">✍️ เซ็น</button>
+        <button type="button" onclick="document.getElementById('sigFileLeft').click()">📎 รูป</button>
+        <button type="button" onclick="clearSig('left')">✕</button>
+        <input type="file" id="sigFileLeft" accept="image/*" hidden onchange="onSigFile('left',this)">
+      </div>
+    </div>
+    <div class="col">
+      <div class="sigslot"><img class="sigimg" data-sig="right" alt=""></div>
+      <div class="ln"></div>
+      <div class="cap" id="signRight">ผู้สั่งซื้อ / วันที่</div>
+      <div class="sigctl no-print">
+        <button type="button" onclick="openSignPad('right')">✍️ เซ็น</button>
+        <button type="button" onclick="document.getElementById('sigFileRight').click()">📎 รูป</button>
+        <button type="button" onclick="clearSig('right')">✕</button>
+        <input type="file" id="sigFileRight" accept="image/*" hidden onchange="onSigFile('right',this)">
+      </div>
+    </div>
   </div>
 </div>
+
+<!-- กล่องวาดลายเซ็น -->
+<dialog class="cdlg" id="sigPad">
+  <div class="cbody">
+    <h3 id="sigPadTitle">✍️ เซ็นชื่อ</h3>
+    <canvas id="sigCanvas" width="560" height="220"></canvas>
+    <p style="font-size:11px;color:var(--muted);margin-top:6px">ลากเมาส์หรือใช้นิ้ววาดลายเซ็นในกรอบด้านบน</p>
+  </div>
+  <div class="cbtns">
+    <button class="cancel" type="button" onclick="clearCanvas()">ล้าง</button>
+    <button class="cancel" type="button" onclick="document.getElementById('sigPad').close()">ยกเลิก</button>
+    <button class="btn-folder" type="button" onclick="saveSignature()">บันทึกลายเซ็น</button>
+  </div>
+</dialog>
 
 <div class="toast" id="toast"></div>
 
@@ -366,6 +443,64 @@
     });
     return items;
   }
+  /* ================= วันที่ (ปฏิทิน ค.ศ. -> โชว์ พ.ศ. แบบสั้น) ================= */
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function todayISO(){ const t=new Date(); return t.getFullYear()+'-'+pad2(t.getMonth()+1)+'-'+pad2(t.getDate()); }
+  function isoToThaiShort(iso){ if(!iso||!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return ''; const [y,m,d]=iso.split('-'); return d+'/'+m+'/'+(parseInt(y,10)+543); }
+  function onDatePick(iso){ setField('doc_date', isoToThaiShort(iso)); }
+  function setDate(iso){ document.getElementById('docDatePicker').value=iso||''; if(iso) setField('doc_date', isoToThaiShort(iso)); }
+
+  /* ================= ลายเซ็น (วาด / อัปโหลด) ================= */
+  function sigImg(side){ return document.querySelector('.sigimg[data-sig="'+side+'"]'); }
+  function sigSrc(side){ const el=sigImg(side); return (el&&el.dataset.url)||''; }
+  function setSig(side,url){ const el=sigImg(side); if(!el) return; el.dataset.url=url||''; if(url){ el.src=url; el.classList.add('on'); } else { el.removeAttribute('src'); el.classList.remove('on'); } }
+  function clearSig(side){ setSig(side,''); }
+  function onSigFile(side,input){
+    const f=input.files&&input.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        /* ย่อรูปให้กว้างสุด 560px กัน JSON บวม (รูปจากมือถืออาจใหญ่หลาย MB) */
+        const maxW=560, scale=Math.min(1, maxW/(img.width||maxW));
+        const w=Math.max(1,Math.round(img.width*scale)), h=Math.max(1,Math.round(img.height*scale));
+        const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+        cv.getContext('2d').drawImage(img,0,0,w,h);
+        setSig(side, cv.toDataURL('image/png'));
+      };
+      img.onerror=()=>toast('อ่านรูปไม่ได้',true);
+      img.src=r.result;
+    };
+    r.readAsDataURL(f); input.value='';
+  }
+  /* ---- แผ่นวาดลายเซ็น ---- */
+  let _sigTarget=null, _sigCtx=null, _sigDrawing=false;
+  function _sigPos(e){ const c=document.getElementById('sigCanvas'); const r=c.getBoundingClientRect(); return { x:(e.clientX-r.left)*(c.width/r.width), y:(e.clientY-r.top)*(c.height/r.height) }; }
+  function clearCanvas(){ const c=document.getElementById('sigCanvas'); _sigCtx=c.getContext('2d'); _sigCtx.clearRect(0,0,c.width,c.height); }
+  function openSignPad(side){
+    _sigTarget=side;
+    document.getElementById('sigPadTitle').textContent='✍️ เซ็นชื่อ — '+(side==='left'?'ฝั่งซ้าย':'ฝั่งขวา');
+    const c=document.getElementById('sigCanvas'); _sigCtx=c.getContext('2d');
+    _sigCtx.clearRect(0,0,c.width,c.height);
+    _sigCtx.lineWidth=2.4; _sigCtx.lineCap='round'; _sigCtx.lineJoin='round'; _sigCtx.strokeStyle='#1c1c1c';
+    const dlg=document.getElementById('sigPad'); if(dlg.showModal){ dlg.showModal(); } else { dlg.setAttribute('open',''); }
+  }
+  function _isBlankCanvas(c){ const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data; for(let i=3;i<d.length;i+=4){ if(d[i]!==0) return false; } return true; }
+  function saveSignature(){
+    const c=document.getElementById('sigCanvas');
+    if(_isBlankCanvas(c)){ toast('ยังไม่ได้วาดลายเซ็น',true); return; }
+    setSig(_sigTarget, c.toDataURL('image/png'));
+    const dlg=document.getElementById('sigPad'); if(dlg.open) dlg.close();
+  }
+  (function initSigCanvas(){
+    const c=document.getElementById('sigCanvas'); if(!c) return; _sigCtx=c.getContext('2d');
+    c.addEventListener('pointerdown',e=>{ _sigDrawing=true; try{c.setPointerCapture(e.pointerId);}catch(_){}; const p=_sigPos(e); _sigCtx.beginPath(); _sigCtx.moveTo(p.x,p.y); });
+    c.addEventListener('pointermove',e=>{ if(!_sigDrawing) return; const p=_sigPos(e); _sigCtx.lineTo(p.x,p.y); _sigCtx.stroke(); });
+    c.addEventListener('pointerup',()=>{ _sigDrawing=false; });
+    c.addEventListener('pointerleave',()=>{ _sigDrawing=false; });
+    c.addEventListener('pointercancel',()=>{ _sigDrawing=false; });
+  })();
+
   function collectDocument(){
     const type=document.getElementById('docTypeSel').value;
     return {
@@ -373,6 +508,9 @@
         doc_no:document.getElementById('docNo').innerText.trim(),
         doc_type:type,
         doc_date:getField('doc_date'),
+        doc_date_iso:document.getElementById('docDatePicker').value,
+        sign_left:sigSrc('left'),
+        sign_right:sigSrc('right'),
         issuer_name:getField('issuer_name'),
         issuer_address:getField('issuer_address'),
         issuer_tax:getField('issuer_tax'),
@@ -407,6 +545,8 @@
     setDocType(d.doc_type||'quotation');
     document.getElementById('docNo').textContent=d.doc_no||'';
     ['doc_date','issuer_name','issuer_address','issuer_tax','issuer_contact','client_html','price_terms','agreement','assurance','payment_info'].forEach(f=>setField(f,d[f]));
+    document.getElementById('docDatePicker').value=d.doc_date_iso||'';
+    setSig('left', d.sign_left||''); setSig('right', d.sign_right||'');
     document.getElementById('whtRate').textContent=(d.wht_rate!==undefined?d.wht_rate:3);
     const tbody=document.querySelector('#itemTable tbody'); tbody.innerHTML='';
     (payload.items||[]).forEach(it=>{ const tr=document.createElement('tr'); tr.innerHTML=rowHtml(it.item_name,it.item_desc,it.price,it.qty); tbody.appendChild(tr); makeDel(tr); });
@@ -427,7 +567,8 @@
     let no='';
     try{ const r=await fetch('/api/next-no'); no=(await r.json()).doc_no||''; }catch(e){}
     document.getElementById('docNo').textContent=no||new Date().getFullYear()+' 0001';
-    setField('doc_date','___ / ___ / '+ (new Date().getFullYear()+543));
+    setDate(todayISO());
+    clearSig('left'); clearSig('right');
     setField('client_html','<b>ชื่อลูกค้า</b><div class="sub">ที่อยู่</div><div class="sub">เลขผู้เสียภาษี</div>');
     const tbody=document.querySelector('#itemTable tbody'); tbody.innerHTML='';
     addRow();
@@ -435,7 +576,7 @@
   }
 
   /* ---------- drawer ---------- */
-  function openDrawer(){ document.getElementById('drawer').classList.add('open'); document.getElementById('backdrop').classList.add('open'); refreshDocList(); }
+  function openDrawer(){ document.getElementById('drawer').classList.add('open'); document.getElementById('backdrop').classList.add('open'); refreshDocList(); loadDataDirPath(); }
   function closeDrawer(){ document.getElementById('drawer').classList.remove('open'); document.getElementById('backdrop').classList.remove('open'); }
   const TYPE_LABEL={quotation:'ใบเสนอราคา',invoice:'ใบแจ้งหนี้',receipt:'ใบเสร็จ'};
   async function refreshDocList(){
@@ -455,6 +596,38 @@
         list.appendChild(el);
       });
     }catch(e){ list.innerHTML='<div class="empty">โหลดรายการไม่ได้<br>'+escapeHtml(e.message)+'</div>'; }
+  }
+
+  /* ---------- โฟลเดอร์ข้อมูล + ล้างข้อมูล ---------- */
+  async function loadDataDirPath(){
+    try{ const r=await fetch('/api/data-dir'); const j=await r.json(); document.getElementById('dataDirPath').textContent=j.path||''; }catch(e){}
+  }
+  async function openDataDir(){
+    try{
+      const res=await fetch('/api/open-data-dir',{method:'POST'});
+      const j=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(j.detail||('HTTP '+res.status));
+      toast('เปิดโฟลเดอร์ข้อมูลแล้ว');
+    }catch(e){ toast('เปิดโฟลเดอร์ไม่ได้: '+e.message,true); }
+  }
+  function askClearAll(){
+    const d=document.getElementById('confirmClear');
+    if(d && typeof d.showModal==='function'){ d.showModal(); }
+    else if(confirm('ล้างข้อมูลทั้งหมด? ไฟล์จะถูกย้ายไปโฟลเดอร์สำรอง (กู้คืนได้)')){ doClearAll(); }
+  }
+  async function doClearAll(){
+    const d=document.getElementById('confirmClear'); if(d && d.open) d.close();
+    try{
+      const res=await fetch('/api/clear-all',{method:'POST'});
+      const j=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(j.detail||('HTTP '+res.status));
+      /* ล้าง draft ค้างในเครื่อง แล้วเริ่มเอกสารใหม่ (เลขจะเป็น 0001) */
+      try{ localStorage.removeItem(KEY); localStorage.removeItem(TKEY); localStorage.removeItem(KEY+':type'); }catch(e){}
+      setDocType('quotation');   /* กันชนิดเอกสารค้างของเดิม (เช่นตรา PAID ของใบเสร็จ) */
+      await refreshDocList();
+      await newDocument();
+      toast('ล้างข้อมูลแล้ว ('+(j.count||0)+' ไฟล์) • เลขรันรีเซ็ตเป็น 0001');
+    }catch(e){ toast('ล้างข้อมูลไม่ได้: '+e.message,true); }
   }
 
   /* ---------- health dot ---------- */

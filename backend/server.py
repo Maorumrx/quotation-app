@@ -3,6 +3,10 @@ backend/server.py
 FastAPI: เสิร์ฟหน้า HTML + API สำหรับ list / load / save / delete / เลขถัดไป
 ที่เก็บข้อมูล = ไฟล์ JSON ในเครื่อง (ดู backend/store.py)
 """
+import os
+import subprocess
+import sys
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 
@@ -74,3 +78,39 @@ def next_no():
         return {"doc_no": _db.next_doc_no()}
     except StoreError as e:
         return JSONResponse({"doc_no": "", "message": str(e)}, status_code=200)
+
+
+@app.get("/api/data-dir")
+def get_data_dir():
+    """คืน path โฟลเดอร์เก็บข้อมูล (ให้ frontend โชว์ได้)"""
+    return {"path": _db.data_dir}
+
+
+@app.post("/api/open-data-dir")
+def open_data_dir():
+    """สั่งให้ OS เปิดโฟลเดอร์เก็บข้อมูลใน File Explorer / Finder (แอปรันในเครื่อง)"""
+    path = _db.data_dir
+    try:
+        _db.health()  # สร้างโฟลเดอร์ให้ถ้ายังไม่มี + เช็คว่าเข้าถึงได้
+    except StoreError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    try:
+        if sys.platform.startswith("win"):
+            os.startfile(path)  # type: ignore[attr-defined]  # มีเฉพาะ Windows
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", path])
+        else:
+            subprocess.Popen(["xdg-open", path])
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"เปิดโฟลเดอร์ไม่ได้: {e}")
+    return {"ok": True, "path": path}
+
+
+@app.post("/api/clear-all")
+def clear_all():
+    """ล้างเอกสารทั้งหมด (ย้ายไปโฟลเดอร์สำรอง) — เลขรันจะรีเซ็ตเองหลังจากนี้"""
+    try:
+        result = _db.clear_all()
+        return {"ok": True, **result}
+    except StoreError as e:
+        raise HTTPException(status_code=500, detail=str(e))

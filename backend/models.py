@@ -24,6 +24,9 @@ class Document(BaseModel):
     issuer_tax: str = ""
     issuer_contact: str = ""
     client_html: str = ""                # เก็บเป็น HTML เพราะมีชื่อ+ที่อยู่+เลขภาษี
+    doc_date_iso: str = ""               # วันที่จากปฏิทินแบบ ISO (YYYY-MM-DD) ไว้เปิดกลับมาแก้
+    sign_left: str = ""                  # ลายเซ็นซ้าย (PNG data URL — วาดหรืออัปโหลด)
+    sign_right: str = ""                 # ลายเซ็นขวา (PNG data URL)
     wht_rate: float = 3
     subtotal: float = 0
     wht_amount: float = 0

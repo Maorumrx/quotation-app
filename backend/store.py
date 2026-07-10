@@ -129,6 +129,41 @@ class DocumentStore:
         except OSError as e:  # noqa: BLE001
             raise StoreError(f"ลบไฟล์ไม่ได้: {e}") from e
 
+    def clear_all(self) -> dict:
+        """ล้างเอกสารทั้งหมด: ย้ายไฟล์ .json ทุกใบไปโฟลเดอร์สำรอง (กู้คืนได้)
+        เลขรันจะรีเซ็ตเองเพราะ next_doc_no อ่านเฉพาะ .json ที่อยู่ชั้นบนสุด
+        (โฟลเดอร์ _backup_* ถูกข้าม). คืน {count, backup_dir}."""
+        self._ensure_dir()
+        names = [
+            n for n in os.listdir(self.data_dir)
+            if n.endswith(".json") and os.path.isfile(os.path.join(self.data_dir, n))
+        ]
+        if not names:
+            return {"count": 0, "backup_dir": ""}
+        stamp = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup = os.path.join(self.data_dir, f"_backup_{stamp}")
+        try:
+            os.makedirs(backup, exist_ok=True)
+        except OSError as e:  # noqa: BLE001
+            raise StoreError(f"ล้างข้อมูลไม่ได้: {e}") from e
+
+        # ย้ายทีละไฟล์แบบ best-effort: ถ้าไฟล์ไหนติด (เช่นเปิดค้างบน Windows)
+        # ก็ข้ามไปไฟล์อื่น แล้วค่อยรายงานรวม ไม่ทิ้งให้ค้างครึ่งๆ แบบเงียบๆ
+        moved, failed = [], []
+        for n in names:
+            try:
+                os.replace(os.path.join(self.data_dir, n),
+                           os.path.join(backup, n))
+                moved.append(n)
+            except OSError:
+                failed.append(n)
+        if failed:
+            raise StoreError(
+                f"ย้ายได้ {len(moved)} ไฟล์ แต่ติด {len(failed)} ไฟล์ "
+                f"(อาจเปิดไฟล์ค้างอยู่): {', '.join(failed[:5])}"
+            )
+        return {"count": len(moved), "backup_dir": backup}
+
     # ---------- next number ----------
     def next_doc_no(self) -> str:
         """เลขถัดไป: '{ปีค.ศ.} {ลำดับ 4 หลัก}' อิงเลขล่าสุดของปีนี้"""
