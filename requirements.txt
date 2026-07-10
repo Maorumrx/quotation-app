@@ -1,0 +1,10 @@
+# ---- runtime ----
+fastapi>=0.110
+uvicorn>=0.29
+pywebview>=5.0
+gspread>=6.0
+google-auth>=2.30
+pydantic>=2.7
+
+# ---- build only (CI ลงให้เอง) ----
+# pyinstaller

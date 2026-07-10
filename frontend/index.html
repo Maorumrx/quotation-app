@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ใบเสนอราคา / ใบแจ้งหนี้ / ใบเสร็จ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=KoHo:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  :root{
+    --ink:#33302B; --muted:#8A7E73; --line:#E2DACF;
+    --clay:#8B6A52; --clay2:#C2A18C; --cream:#FBF8F3; --accent:#E8D5C4;
+  }
+  body{ font-family:'Sarabun',sans-serif; color:var(--ink); font-size:10pt; line-height:1.5; background:#EBE5DC; }
+  h1,h2,h3,.head{ font-family:'KoHo',sans-serif; }
+
+  .toolbar{ position:sticky; top:0; z-index:99; background:var(--clay); color:#fff;
+    display:flex; align-items:center; justify-content:space-between; padding:10px 18px; box-shadow:0 2px 12px rgba(0,0,0,.15); }
+  .toolbar .tt{ font-family:'KoHo'; font-weight:600; font-size:13px; display:flex; align-items:center; gap:10px; }
+  .toolbar .grp{ display:flex; align-items:center; }
+  .toolbar select,.toolbar button{ font-family:'Sarabun'; font-weight:600; font-size:13px; border:none; border-radius:8px; padding:8px 14px; cursor:pointer; margin-left:8px; }
+  .toolbar select{ background:#fff; color:var(--clay); }
+  .btn-print{ background:#fff; color:var(--clay); }
+  .btn-reset{ background:rgba(255,255,255,.18); color:#fff; }
+  .btn-ghost{ background:rgba(255,255,255,.18); color:#fff; }
+  .btn-save{ background:#3E8E5A; color:#fff; }
+  .status-dot{ width:9px; height:9px; border-radius:50%; background:#d9b25a; display:inline-block; }
+  .status-dot.ok{ background:#7BE0A0; } .status-dot.err{ background:#E88A7A; }
+  .toast{ position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:#fff; padding:11px 20px; border-radius:10px; font-size:13px;
+    box-shadow:0 6px 24px rgba(0,0,0,.25); opacity:0; transition:.25s; z-index:300; pointer-events:none; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.err{ background:#9B4230; }
+
+  /* drawer รายการเอกสาร */
+  .drawer-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:150; display:none; }
+  .drawer-backdrop.open{ display:block; }
+  .drawer{ position:fixed; top:0; left:0; height:100%; width:340px; background:#fff; z-index:200;
+    box-shadow:2px 0 26px rgba(0,0,0,.2); transform:translateX(-100%); transition:transform .25s; display:flex; flex-direction:column; }
+  .drawer.open{ transform:none; }
+  .drawer .dh{ background:var(--clay); color:#fff; padding:14px 16px; font-family:'KoHo'; font-weight:600; display:flex; justify-content:space-between; align-items:center; }
+  .drawer .dh button{ background:transparent; border:none; color:#fff; font-size:18px; cursor:pointer; }
+  .drawer .dlist{ overflow-y:auto; flex:1; }
+  .doc-item{ padding:11px 16px; border-bottom:1px solid var(--line); cursor:pointer; }
+  .doc-item:hover{ background:var(--cream); }
+  .doc-item .no{ font-family:'KoHo'; font-weight:600; color:var(--clay); font-size:12.5px; display:flex; justify-content:space-between; }
+  .doc-item .cli{ font-size:12px; color:var(--ink); margin-top:2px; }
+  .doc-item .meta{ font-size:11px; color:var(--muted); margin-top:2px; display:flex; justify-content:space-between; }
+  .badge{ font-size:10px; padding:1px 7px; border-radius:20px; background:var(--accent); color:var(--clay); font-family:'KoHo'; }
+  .dlist .empty{ padding:24px 16px; color:var(--muted); font-size:12.5px; text-align:center; }
+
+  .page{ width:210mm; min-height:297mm; margin:20px auto; background:#fff; padding:16mm 16mm 14mm; box-shadow:0 4px 24px rgba(0,0,0,.10); }
+
+  [contenteditable="true"]{ outline:none; border-radius:3px; transition:background .15s; }
+  [contenteditable="true"]:hover{ background:#FFF3E4; box-shadow:0 0 0 1px var(--clay2); }
+  [contenteditable="true"]:focus{ background:#FFF3E4; box-shadow:0 0 0 2px var(--clay); }
+
+  .top{ display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid var(--clay); padding-bottom:12px; margin-bottom:14px; }
+  .issuer .name{ font-family:'KoHo'; font-weight:700; font-size:14pt; color:var(--clay); }
+  .issuer .row{ font-size:8.7pt; color:var(--ink); margin-top:3px; line-height:1.55; }
+  .issuer .row b{ color:var(--muted); font-weight:600; }
+  .doctype{ text-align:right; min-width:170px; }
+  .doctype .t{ font-family:'KoHo'; font-weight:700; font-size:17pt; color:var(--ink); }
+  .doctype .meta{ font-size:8.7pt; color:var(--muted); margin-top:8px; line-height:1.9; }
+  #paidStamp{ display:none; margin-top:8px; border:2px solid #3E8E5A; color:#3E8E5A; font-family:'KoHo'; font-weight:700; font-size:11pt; padding:3px 0; border-radius:6px; letter-spacing:1px; }
+
+  .client{ background:var(--cream); border:1px solid var(--line); border-radius:8px; padding:11px 14px; margin-bottom:12px; }
+  .client .lbl{ font-family:'KoHo'; font-size:8pt; color:var(--clay); font-weight:600; letter-spacing:.6px; margin-bottom:3px; }
+  .client .sub{ font-size:8.7pt; color:var(--muted); margin-top:2px; }
+  .lead{ font-size:9pt; color:var(--muted); margin-bottom:8px; }
+
+  table{ width:100%; border-collapse:collapse; margin-bottom:4px; }
+  thead th{ background:var(--cream); font-family:'KoHo'; font-weight:600; font-size:8.5pt; text-align:left; padding:7px 9px; border-bottom:1.5px solid var(--clay2); }
+  thead th .en{ display:block; font-family:'Sarabun'; font-weight:400; font-size:7pt; color:var(--muted); }
+  th.r,td.r{ text-align:right; } th.c,td.c{ text-align:center; }
+  tbody td{ padding:8px 9px; border-bottom:1px solid var(--line); font-size:9.3pt; vertical-align:top; }
+  tbody td .desc{ color:var(--muted); font-size:8.3pt; margin-top:3px; line-height:1.5; }
+  tbody td:first-child{ position:relative; }
+  .btn-delrow{ position:absolute; right:2px; top:7px; width:18px; height:18px; border-radius:50%; border:none; cursor:pointer; background:#E8B4A4; color:#7A3B2A; font-size:11px; line-height:1; display:none; align-items:center; justify-content:center; }
+  tbody tr:hover .btn-delrow{ display:flex; }
+  .addrow-bar{ margin:2px 0 12px; }
+  .btn-addrow{ font-family:'Sarabun'; font-weight:600; font-size:12px; background:var(--accent); color:var(--clay); border:1px dashed var(--clay2); border-radius:8px; padding:6px 15px; cursor:pointer; }
+
+  .totals{ width:56%; margin-left:auto; margin-bottom:10px; }
+  .trow{ display:flex; justify-content:space-between; padding:6px 9px; font-size:9.3pt; }
+  .trow.sub{ border-bottom:1px solid var(--line); }
+  .trow.wht{ color:var(--clay); }
+  .trow.grand{ background:var(--clay); color:#fff; border-radius:6px; font-family:'KoHo'; font-weight:700; font-size:11pt; padding:9px 12px; margin-top:3px; }
+  .baht{ background:var(--cream); border-left:3px solid var(--clay2); border-radius:6px; padding:8px 12px; font-size:9pt; margin-bottom:14px; }
+  .baht b{ font-family:'KoHo'; color:var(--clay); }
+
+  .terms{ display:flex; gap:16px; margin-bottom:12px; }
+  .terms .col{ flex:1; }
+  .terms .k{ font-family:'KoHo'; font-weight:600; font-size:8.5pt; color:var(--clay); margin-bottom:3px; }
+  .terms .v{ font-size:9pt; }
+  .assure{ font-size:8.7pt; color:var(--muted); font-style:italic; margin-bottom:12px; }
+
+  .pay{ background:var(--cream); border:1px solid var(--line); border-radius:8px; padding:11px 14px; margin-bottom:16px; }
+  .pay .k{ font-family:'KoHo'; font-weight:600; font-size:9pt; color:var(--clay); margin-bottom:6px; }
+  .pay .b{ font-size:9pt; margin-bottom:2px; }
+
+  .sign{ display:flex; gap:24px; margin-top:8px; }
+  .sign .col{ flex:1; text-align:center; }
+  .sign .ln{ border-top:1px dotted var(--ink); margin:30px 8px 6px; }
+  .sign .cap{ font-size:8.5pt; color:var(--muted); }
+
+  @media print{
+    body{ background:#fff; }
+    .toolbar,.drawer,.drawer-backdrop,.toast{ display:none !important; }
+    .page{ width:auto; min-height:auto; margin:0; padding:0; box-shadow:none; }
+    [contenteditable="true"]:hover,[contenteditable="true"]:focus{ background:transparent; box-shadow:none; }
+    .btn-delrow,.addrow-bar{ display:none !important; }
+    @page{ size:A4; margin:15mm 15mm 14mm; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="tt"><span class="status-dot" id="statusDot" title="สถานะ Google Sheet"></span> 🧾 จัดการเอกสาร</div>
+  <div class="grp">
+    <button class="btn-ghost" onclick="openDrawer()">📁 เอกสารทั้งหมด</button>
+    <button class="btn-ghost" onclick="newDocument()">🆕 สร้างใหม่</button>
+    <select id="docTypeSel" onchange="setDocType(this.value)">
+      <option value="quotation">📄 ใบเสนอราคา</option>
+      <option value="invoice">📮 ใบแจ้งหนี้</option>
+      <option value="receipt">✅ ใบเสร็จรับเงิน</option>
+    </select>
+    <button class="btn-save" onclick="saveDocument()">💾 บันทึกลง Sheet</button>
+    <button class="btn-print" onclick="window.print()">🖨️ PDF</button>
+  </div>
+</div>
+
+<!-- drawer -->
+<div class="drawer-backdrop" id="backdrop" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="dh"><span>📁 เอกสารทั้งหมด</span><button onclick="closeDrawer()">✕</button></div>
+  <div class="dlist" id="docList"><div class="empty">กำลังโหลด…</div></div>
+</div>
+
+<div class="page">
+  <div class="top">
+    <div class="issuer">
+      <div class="name" data-field="issuer_name" contenteditable="true">นางสาว ชนกานต์ เมืองคุ้ม</div>
+      <div class="row" data-field="issuer_address" data-html="1" contenteditable="true"><b>ที่อยู่</b> 77/54 หมู่ที่ 5 ต.หนองปรือ อ.บางละมุง จ.ชลบุรี 20150</div>
+      <div class="row" data-field="issuer_tax" data-html="1" contenteditable="true"><b>เลขผู้เสียภาษี</b> 1103000131679</div>
+      <div class="row" data-field="issuer_contact" data-html="1" contenteditable="true"><b>โทร.</b> 061-861-0909 &nbsp; <b>อีเมล</b> gam.muangkoom@gmail.com</div>
+    </div>
+    <div class="doctype">
+      <div class="t" id="docTitle">ใบเสนอราคา</div>
+      <div class="meta">
+        เลขที่ / No.: <span contenteditable="true" id="docNo" data-field="doc_no">2026 0003</span><br>
+        วันที่ / Date: <span contenteditable="true" data-field="doc_date">___ / ___ / 2569</span>
+      </div>
+      <div id="paidStamp">✓ ชำระเงินแล้ว</div>
+    </div>
+  </div>
+
+  <div class="client">
+    <div class="lbl">เรียน (ลูกค้า)</div>
+    <div data-field="client_html" data-html="1" contenteditable="true"><b>บริษัท น้ำตาล สหมิตร จำกัด (สำนักงานใหญ่)</b>
+      <div class="sub">เลขที่ 462/59 ถนนนางลิ้นจี่ แขวงช่องนนทรี เขตยานนาวา กรุงเทพมหานคร 10120</div>
+      <div class="sub">เลขผู้เสียภาษี 0105555006879</div>
+    </div>
+  </div>
+
+  <div class="lead">ขอเสนอราคาและเงื่อนไขสำหรับท่านดังนี้</div>
+
+  <table id="itemTable">
+    <thead>
+      <tr>
+        <th class="c" style="width:8%">ลำดับ<span class="en">ITEM</span></th>
+        <th style="width:44%">รายการ<span class="en">DESCRIPTION</span></th>
+        <th class="r" style="width:18%">ราคาต่อหน่วย<span class="en">PRICE</span></th>
+        <th class="c" style="width:12%">จำนวน<span class="en">QTY</span></th>
+        <th class="r" style="width:18%">จำนวนเงิน<span class="en">AMOUNT</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="c" contenteditable="true">1</td>
+        <td class="item" contenteditable="true"><b>VDO Present ช่อง gampamao</b>
+          <div class="desc">Product: Carabao Tawandang 5 รสชาติ<br>Campaign: Fully open lid<br>Scope of work: review vdo post on all social<br>(ช่องทางการลงงาน: TikTok, Instagram)</div>
+        </td>
+        <td class="r price" contenteditable="true">20,000</td>
+        <td class="c qty" contenteditable="true">1</td>
+        <td class="r amount">20,000</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="addrow-bar"><button class="btn-addrow" onclick="addRow()">＋ เพิ่มรายการ</button></div>
+
+  <div class="totals">
+    <div class="trow sub"><span>รวมเงิน</span><span id="subtotal">20,000</span></div>
+    <div class="trow wht">
+      <span>ภาษีหัก ณ ที่จ่าย <span contenteditable="true" id="whtRate" data-field="wht_rate">3</span>%</span>
+      <span id="whtAmount">600</span>
+    </div>
+    <div class="trow grand"><span>จำนวนเงินทั้งสิ้น</span><span id="grandTotal">19,400</span></div>
+  </div>
+
+  <div class="baht">จำนวนเงิน (ตัวอักษร): <b id="bahtText">หนึ่งหมื่นเก้าพันสี่ร้อยบาทถ้วน</b></div>
+
+  <div class="terms">
+    <div class="col">
+      <div class="k">ราคาที่เสนอ</div>
+      <div class="v" data-field="price_terms" contenteditable="true">เงินบาทไทย</div>
+    </div>
+    <div class="col">
+      <div class="k">ข้อตกลง</div>
+      <div class="v" data-field="agreement" contenteditable="true">ชำระทั้งหมดหลังโพสต์งาน</div>
+    </div>
+  </div>
+  <div class="assure" data-field="assurance" contenteditable="true">ข้าพเจ้ารับรองว่า จะส่งมอบของดังกล่าวข้างต้นได้ภายในกำหนด</div>
+
+  <div class="pay">
+    <div class="k">ช่องทางการชำระเงิน</div>
+    <div data-field="payment_info" data-html="1" contenteditable="true">
+      <div class="b"><b>ชื่อบัญชี</b> นางสาวชนกานต์ เมืองคุ้ม</div>
+      <div class="b"><b>ธ.ไทยพาณิชย์</b> สาขาซอยหมู่บ้านเสนานิเวศน์ : 093-244371-4</div>
+      <div class="b"><b>ธ.กสิกรไทย</b> สาขาเอสพละนาด รัชดาภิเษก : 109-8-7-0318-3</div>
+    </div>
+  </div>
+
+  <div class="sign">
+    <div class="col"><div class="ln"></div><div class="cap" id="signLeft">ผู้เสนอราคา / วันที่</div></div>
+    <div class="col"><div class="ln"></div><div class="cap" id="signRight">ผู้สั่งซื้อ / วันที่</div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const KEY='quotation-gampamao-v1';
+
+  /* ---------- ตัวเลข + ตัวอักษรบาท ---------- */
+  function parseNum(t){ const n=parseFloat(String(t).replace(/,/g,'').trim()); return isNaN(n)?0:n; }
+  function fmt(n){ return Number.isInteger(n)?n.toLocaleString('en-US'):n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function bahtText(num){
+    num=parseFloat(num); if(isNaN(num)) return '';
+    const t=['ศูนย์','หนึ่ง','สอง','สาม','สี่','ห้า','หก','เจ็ด','แปด','เก้า'];
+    const p=['','สิบ','ร้อย','พัน','หมื่น','แสน'];
+    function readG(s){ let r=''; const L=s.length;
+      for(let i=0;i<L;i++){ const d=+s[i]; const pos=L-1-i; if(d===0) continue;
+        if(pos===0&&d===1&&L>1) r+='เอ็ด';
+        else if(pos===1&&d===1) r+='สิบ';
+        else if(pos===1&&d===2) r+='ยี่สิบ';
+        else r+=t[d]+p[pos];
+      } return r;
+    }
+    const fixed=Math.abs(num).toFixed(2); let [ip,dp]=fixed.split('.');
+    ip=ip.replace(/^0+/,'')||'0';
+    let baht='';
+    if(ip==='0') baht='ศูนย์';
+    else{ let g=[]; while(ip.length>6){ g.unshift(ip.slice(-6)); ip=ip.slice(0,-6);} g.unshift(ip); baht=g.map(readG).join('ล้าน'); }
+    baht+='บาท';
+    baht+= (dp==='00') ? 'ถ้วน' : readG(dp)+'สตางค์';
+    return baht;
+  }
+
+  function recalc(){
+    let sub=0;
+    document.querySelectorAll('#itemTable tbody tr').forEach(tr=>{
+      const price=parseNum(tr.querySelector('.price')?.textContent);
+      const qty=parseNum(tr.querySelector('.qty')?.textContent);
+      const amt=price*qty;
+      const ac=tr.querySelector('.amount'); if(ac) ac.textContent=fmt(amt);
+      sub+=amt;
+    });
+    const rate=parseNum(document.getElementById('whtRate').textContent);
+    const wht=sub*rate/100;
+    const grand=sub-wht;
+    document.getElementById('subtotal').textContent=fmt(sub);
+    document.getElementById('whtAmount').textContent=fmt(wht);
+    document.getElementById('grandTotal').textContent=fmt(grand);
+    document.getElementById('bahtText').textContent=bahtText(grand);
+    persistTable();
+  }
+
+  /* ---------- เพิ่ม/ลบแถว ---------- */
+  function makeDel(tr){ if(tr.querySelector('.btn-delrow'))return;
+    const b=document.createElement('button'); b.className='btn-delrow'; b.textContent='✕'; b.setAttribute('contenteditable','false');
+    tr.querySelector('td').appendChild(b);
+  }
+  document.querySelector('#itemTable tbody').addEventListener('mousedown',e=>{
+    const b=e.target.closest('.btn-delrow'); if(!b)return;
+    e.preventDefault(); if(confirm('ลบรายการนี้?')){ b.closest('tr').remove(); renumber(); recalc(); }
+  });
+  function renumber(){ document.querySelectorAll('#itemTable tbody tr').forEach((tr,i)=>{ tr.querySelector('td.c').textContent=i+1; }); }
+  function rowHtml(name, desc, price, qty){
+    return `<td class="c" contenteditable="true"></td>
+      <td class="item" contenteditable="true"><b>${escapeHtml(name||'รายการใหม่')}</b><div class="desc">${desc||'รายละเอียด'}</div></td>
+      <td class="r price" contenteditable="true">${price!==undefined?fmt(price):'0'}</td>
+      <td class="c qty" contenteditable="true">${qty!==undefined?qty:'1'}</td>
+      <td class="r amount">0</td>`;
+  }
+  function addRow(){
+    const tb=document.querySelector('#itemTable tbody');
+    const tr=document.createElement('tr'); tr.innerHTML=rowHtml();
+    tb.appendChild(tr); makeDel(tr); renumber(); recalc();
+  }
+
+  /* ---------- format ตอนออกจากช่องราคา + คำนวณสด ---------- */
+  const tb=document.querySelector('#itemTable tbody');
+  tb.addEventListener('input',e=>{ if(e.target.closest('.price,.qty')) recalc(); });
+  tb.addEventListener('focusout',e=>{
+    const c=e.target.closest('.price'); if(c){ const n=parseNum(c.textContent); if(c.textContent.trim()!=='') c.textContent=fmt(n); }
+    recalc();
+  });
+  document.getElementById('whtRate').addEventListener('input',recalc);
+
+  /* ---------- doc type ---------- */
+  const DOCTYPES={
+    quotation:{ title:'ใบเสนอราคา', paid:false, sL:'ผู้เสนอราคา / วันที่', sR:'ผู้สั่งซื้อ / วันที่' },
+    invoice:  { title:'ใบแจ้งหนี้',  paid:false, sL:'ผู้วางบิล / วันที่',   sR:'ผู้รับวางบิล / วันที่' },
+    receipt:  { title:'ใบเสร็จรับเงิน', paid:true, sL:'ผู้รับเงิน / วันที่', sR:'ผู้จ่ายเงิน / วันที่' }
+  };
+  function setDocType(type){
+    const d=DOCTYPES[type]||DOCTYPES.quotation;
+    document.getElementById('docTitle').textContent=d.title;
+    document.getElementById('paidStamp').style.display=d.paid?'block':'none';
+    document.getElementById('signLeft').textContent=d.sL;
+    document.getElementById('signRight').textContent=d.sR;
+    document.getElementById('docTypeSel').value=type;
+    try{ localStorage.setItem(KEY+':type',type); }catch(e){}
+  }
+
+  /* ---------- auto-save draft (offline cache) ---------- */
+  const fields=document.querySelectorAll('[contenteditable="true"]');
+  fields.forEach((el,i)=>el.dataset.fid='f'+i);
+  const TKEY=KEY+':table';
+  function persistTable(){ try{ const c=document.querySelector('#itemTable tbody').cloneNode(true); c.querySelectorAll('.btn-delrow').forEach(b=>b.remove()); localStorage.setItem(TKEY,c.innerHTML);}catch(e){} }
+  try{
+    const saved=JSON.parse(localStorage.getItem(KEY)||'{}');
+    fields.forEach(el=>{ if(saved[el.dataset.fid]!==undefined) el.innerHTML=saved[el.dataset.fid]; });
+    const ts=localStorage.getItem(TKEY); if(ts){ document.querySelector('#itemTable tbody').innerHTML=ts; document.querySelectorAll('.btn-delrow').forEach(b=>b.remove()); }
+    const type=localStorage.getItem(KEY+':type')||'quotation'; setDocType(type);
+  }catch(e){}
+  let dt;
+  document.addEventListener('input',()=>{ clearTimeout(dt); dt=setTimeout(()=>{
+    const d={}; fields.forEach(el=>{ const c=el.cloneNode(true); c.querySelectorAll('.btn-delrow').forEach(b=>b.remove()); d[el.dataset.fid]=c.innerHTML; });
+    try{ localStorage.setItem(KEY,JSON.stringify(d)); }catch(e){}
+  },400); });
+
+  document.querySelectorAll('#itemTable tbody tr').forEach(makeDel);
+
+  /* ================= API layer (Google Sheet) ================= */
+  function toast(msg, isErr){ const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show'+(isErr?' err':''); setTimeout(()=>t.className='toast',2600); }
+  function fieldEl(name){ return document.querySelector(`[data-field="${name}"]`); }
+  function getField(name){ const el=fieldEl(name); if(!el) return ''; return el.dataset.html==='1'? el.innerHTML.trim() : el.innerText.trim(); }
+  function setField(name,val){ const el=fieldEl(name); if(!el) return; if(el.dataset.html==='1') el.innerHTML=val||''; else el.textContent=val||''; }
+
+  function collectItems(){
+    const items=[];
+    document.querySelectorAll('#itemTable tbody tr').forEach((tr,i)=>{
+      const nameEl=tr.querySelector('.item b');
+      const descEl=tr.querySelector('.item .desc');
+      const name=nameEl?nameEl.innerText.trim():(tr.querySelector('.item')?.innerText.trim()||'');
+      const desc=descEl?descEl.innerHTML.trim():'';
+      const price=parseNum(tr.querySelector('.price')?.textContent);
+      const qty=parseNum(tr.querySelector('.qty')?.textContent);
+      items.push({seq:i+1,item_name:name,item_desc:desc,price,qty,amount:price*qty});
+    });
+    return items;
+  }
+  function collectDocument(){
+    const type=document.getElementById('docTypeSel').value;
+    return {
+      document:{
+        doc_no:document.getElementById('docNo').innerText.trim(),
+        doc_type:type,
+        doc_date:getField('doc_date'),
+        issuer_name:getField('issuer_name'),
+        issuer_address:getField('issuer_address'),
+        issuer_tax:getField('issuer_tax'),
+        issuer_contact:getField('issuer_contact'),
+        client_html:getField('client_html'),
+        wht_rate:parseNum(document.getElementById('whtRate').textContent),
+        subtotal:parseNum(document.getElementById('subtotal').textContent),
+        wht_amount:parseNum(document.getElementById('whtAmount').textContent),
+        grand_total:parseNum(document.getElementById('grandTotal').textContent),
+        price_terms:getField('price_terms'),
+        agreement:getField('agreement'),
+        assurance:getField('assurance'),
+        payment_info:getField('payment_info'),
+        status:type==='receipt'?'paid':''
+      },
+      items:collectItems()
+    };
+  }
+
+  async function saveDocument(){
+    const payload=collectDocument();
+    if(!payload.document.doc_no){ toast('ยังไม่มีเลขที่เอกสาร',true); return; }
+    try{
+      const res=await fetch('/api/documents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      if(!res.ok){ const err=await res.json().catch(()=>({})); throw new Error(err.detail||('HTTP '+res.status)); }
+      toast('บันทึกลง Sheet แล้ว ✓');
+    }catch(e){ toast('บันทึกไม่ได้: '+e.message,true); }
+  }
+
+  function applyDocument(payload){
+    const d=payload.document||{};
+    setDocType(d.doc_type||'quotation');
+    document.getElementById('docNo').textContent=d.doc_no||'';
+    ['doc_date','issuer_name','issuer_address','issuer_tax','issuer_contact','client_html','price_terms','agreement','assurance','payment_info'].forEach(f=>setField(f,d[f]));
+    document.getElementById('whtRate').textContent=(d.wht_rate!==undefined?d.wht_rate:3);
+    const tbody=document.querySelector('#itemTable tbody'); tbody.innerHTML='';
+    (payload.items||[]).forEach(it=>{ const tr=document.createElement('tr'); tr.innerHTML=rowHtml(it.item_name,it.item_desc,it.price,it.qty); tbody.appendChild(tr); makeDel(tr); });
+    if(!(payload.items||[]).length){ addRow(); }
+    renumber(); recalc();
+  }
+
+  async function loadDocument(docNo){
+    try{
+      const res=await fetch('/api/documents/'+encodeURIComponent(docNo));
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      applyDocument(await res.json());
+      closeDrawer(); toast('โหลด '+docNo+' แล้ว');
+    }catch(e){ toast('โหลดไม่ได้: '+e.message,true); }
+  }
+
+  async function newDocument(){
+    let no='';
+    try{ const r=await fetch('/api/next-no'); no=(await r.json()).doc_no||''; }catch(e){}
+    document.getElementById('docNo').textContent=no||new Date().getFullYear()+' 0001';
+    setField('doc_date','___ / ___ / '+ (new Date().getFullYear()+543));
+    setField('client_html','<b>ชื่อลูกค้า</b><div class="sub">ที่อยู่</div><div class="sub">เลขผู้เสียภาษี</div>');
+    const tbody=document.querySelector('#itemTable tbody'); tbody.innerHTML='';
+    addRow();
+    toast('สร้างเอกสารใหม่ '+(no||''));
+  }
+
+  /* ---------- drawer ---------- */
+  function openDrawer(){ document.getElementById('drawer').classList.add('open'); document.getElementById('backdrop').classList.add('open'); refreshDocList(); }
+  function closeDrawer(){ document.getElementById('drawer').classList.remove('open'); document.getElementById('backdrop').classList.remove('open'); }
+  const TYPE_LABEL={quotation:'ใบเสนอราคา',invoice:'ใบแจ้งหนี้',receipt:'ใบเสร็จ'};
+  async function refreshDocList(){
+    const list=document.getElementById('docList'); list.innerHTML='<div class="empty">กำลังโหลด…</div>';
+    try{
+      const res=await fetch('/api/documents');
+      if(!res.ok){ const err=await res.json().catch(()=>({})); throw new Error(err.detail||('HTTP '+res.status)); }
+      const docs=await res.json();
+      if(!docs.length){ list.innerHTML='<div class="empty">ยังไม่มีเอกสาร<br>กด "สร้างใหม่" แล้วบันทึกได้เลย</div>'; return; }
+      list.innerHTML='';
+      docs.forEach(d=>{
+        const el=document.createElement('div'); el.className='doc-item';
+        el.innerHTML=`<div class="no"><span>${d.doc_no}</span><span class="badge">${TYPE_LABEL[d.doc_type]||d.doc_type}</span></div>
+          <div class="cli">${escapeHtml(d.client_name||'-')}</div>
+          <div class="meta"><span>${d.doc_date||''}</span><span>${fmt(d.grand_total||0)} ฿</span></div>`;
+        el.onclick=()=>loadDocument(d.doc_no);
+        list.appendChild(el);
+      });
+    }catch(e){ list.innerHTML='<div class="empty">โหลดรายการไม่ได้<br>'+escapeHtml(e.message)+'</div>'; }
+  }
+
+  /* ---------- health dot ---------- */
+  (async function(){
+    try{ const r=await fetch('/api/health'); const j=await r.json();
+      document.getElementById('statusDot').className='status-dot '+(j.sheet_ok?'ok':'err');
+      document.getElementById('statusDot').title=j.sheet_ok?'เชื่อม Google Sheet ได้':('Sheet: '+(j.message||'ยังไม่พร้อม'));
+    }catch(e){ document.getElementById('statusDot').className='status-dot err'; }
+  })();
+
+  recalc();
+</script>
+</body>
+</html>

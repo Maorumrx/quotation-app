@@ -1,0 +1,6 @@
+{
+  "sheet_id": "PUT_YOUR_GOOGLE_SHEET_ID_HERE",
+  "documents_tab": "documents",
+  "items_tab": "items",
+  "credentials_file": "credentials.json"
+}
