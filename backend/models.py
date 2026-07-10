@@ -49,9 +49,3 @@ class DocumentSummary(BaseModel):
     client_name: str = ""
     grand_total: float = 0
     status: str = ""
-
-
-class SaveResult(BaseModel):
-    ok: bool
-    doc_no: str
-    message: str = ""
