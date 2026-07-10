@@ -13,6 +13,16 @@ import os
 import subprocess
 import sys
 
+# สำคัญมาก: บน Windows เมื่อ output ถูก redirect (เช่นใน GitHub Actions) Python จะใช้
+# encoding เป็น cp1252/cp437 ไม่ใช่ utf-8 การ print ข้อความ "ภาษาไทย" ด้านล่างจะทำให้เกิด
+# UnicodeEncodeError แล้ว build.py ตายก่อนจะได้เรียก PyInstaller (= สาเหตุที่ Windows build
+# ล้มมาตลอด ส่วน macOS ใช้ utf-8 จึงผ่าน). บังคับ stdout/stderr เป็น utf-8 ก่อนพิมพ์อะไร
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 APP_NAME = "QuotationManager"
 SEP = ";" if os.name == "nt" else ":"  # add-data ใช้ ; บน Windows, : บน mac/linux
 

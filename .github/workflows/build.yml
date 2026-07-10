@@ -18,6 +18,12 @@ jobs:
             artifact: QuotationManager-macOS
     runs-on: ${{ matrix.os }}
 
+    # บังคับ Python ให้ใช้ UTF-8 กับ stdio/ไฟล์เสมอ (กัน UnicodeEncodeError จาก
+    # ข้อความไทยบน Windows runner ที่ default เป็น cp1252)
+    env:
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
+
     steps:
       - uses: actions/checkout@v4
 
