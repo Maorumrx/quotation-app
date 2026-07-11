@@ -60,7 +60,9 @@ class Api:
         result = self._window.create_file_dialog(
             webview.SAVE_DIALOG,
             save_filename=default_name,
-            file_types=("PDF ไฟล์ (*.pdf)",),
+            # ต้องเป็น ASCII เท่านั้น: pywebview parse ชื่อ filter ด้วย regex [\w ]+ ซึ่ง
+            # ไม่รับตัวควบไทย (เช่น "์" ในคำว่า "ไฟล์") -> โยน ValueError เซฟ PDF ไม่ได้
+            file_types=("PDF Document (*.pdf)",),
         )
         if not result:
             return {"ok": False, "canceled": True}
