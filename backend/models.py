@@ -54,6 +54,15 @@ class DocumentSummary(BaseModel):
     status: str = ""
 
 
+class Customer(BaseModel):
+    """ลูกค้า 1 รายในสมุดลูกค้า (ใช้ซ้ำข้ามเอกสาร) — เก็บเป็น field แยกเพื่อดึงกลับมาใช้ได้ชัวร์"""
+    id: str = ""          # id ภายในระบบ (ตั้งอัตโนมัติตอนสร้างครั้งแรก)
+    name: str = ""        # ชื่อบริษัท/ลูกค้า
+    address: str = ""     # ที่อยู่
+    tax_id: str = ""      # เลขผู้เสียภาษี (ใช้เป็น key กันซ้ำ)
+    phone: str = ""       # โทร (ไม่บังคับ)
+
+
 class TaxRateBucket(BaseModel):
     """ยอดภาษีหัก ณ ที่จ่าย จัดกลุ่มตามอัตรา (เช่น 3%, 5%)"""
     rate: float = 0            # อัตรา % (เช่น 3)

@@ -14,7 +14,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 
 from config import APP_VERSION, data_dir, load_config, resource_path
-from .models import DocumentPayload, TaxSummary
+from .customers import CustomerStore
+from .models import Customer, DocumentPayload, TaxSummary
 from .store import DocumentStore, StoreError
 
 # หน้า/asset ของ GitHub สำหรับเช็คเวอร์ชันใหม่
@@ -57,6 +58,7 @@ app = FastAPI(title="Quotation Manager")
 
 _cfg = load_config()
 _db = DocumentStore(data_dir=data_dir(_cfg))
+_cust = CustomerStore(data_dir=data_dir(_cfg))
 
 
 @app.get("/")
@@ -117,6 +119,33 @@ def next_no():
         return {"doc_no": _db.next_doc_no()}
     except StoreError as e:
         return JSONResponse({"doc_no": "", "message": str(e)}, status_code=200)
+
+
+@app.get("/api/customers")
+def list_customers():
+    """สมุดลูกค้า — รายชื่อลูกค้าที่บันทึกไว้ (เรียงตามชื่อ)"""
+    try:
+        return [c.model_dump() for c in _cust.list_customers()]
+    except StoreError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/customers")
+def save_customer(cust: Customer):
+    """เพิ่ม/แก้ลูกค้า (upsert กันซ้ำด้วย id/เลขภาษี/ชื่อ)"""
+    try:
+        return _cust.save_customer(cust).model_dump()
+    except StoreError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/customers/{cust_id:path}")
+def delete_customer(cust_id: str):
+    try:
+        _cust.delete_customer(cust_id)
+        return {"ok": True}
+    except StoreError as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/tax/summary")

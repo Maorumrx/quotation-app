@@ -171,6 +171,27 @@
   .tax-table .r,.tax-head .r{ text-align:right; }
   .tax-card button[disabled]{ opacity:.55; cursor:not-allowed; }
 
+  /* ---------- สมุดลูกค้า: แถบเลือก/บันทึกในกล่องลูกค้า ---------- */
+  .cust-bar{ display:flex; gap:8px; align-items:center; margin:2px 0 8px; }
+  .cust-bar .cust-pick{ flex:1; min-width:0; font-family:'Sarabun'; font-size:12px; color:var(--ink);
+    border:1px solid var(--clay2); border-radius:8px; padding:6px 10px; background:#fff; }
+  .cust-bar .btn-cust-save{ font-family:'Sarabun'; font-weight:600; font-size:12px; white-space:nowrap;
+    background:var(--accent); color:var(--clay); border:1px solid var(--clay2); border-radius:8px; padding:6px 12px; cursor:pointer; }
+  .cust-bar .btn-cust-save:hover{ background:var(--clay2); color:#fff; }
+
+  /* ---------- หน้าจัดการลูกค้า ---------- */
+  .cust-search{ width:100%; font-family:'Sarabun'; font-size:13px; color:var(--ink);
+    border:1px solid var(--clay2); border-radius:9px; padding:9px 13px; background:#fff; margin-bottom:14px; }
+  .cust-table td .cust-mini{ font-size:13px; border:1px solid var(--clay2); background:#fff; border-radius:7px;
+    padding:3px 8px; cursor:pointer; margin-left:5px; }
+  .cust-table td .cust-mini.del{ border-color:#E0A99C; }
+  .cust-table td .cust-mini:hover{ background:var(--cream); }
+  .cf-field{ display:block; margin:9px 0; }
+  .cf-field label{ display:block; font-family:'KoHo'; font-size:11.5px; color:var(--clay); margin-bottom:3px; }
+  .cf-field input,.cf-field textarea{ width:100%; font-family:'Sarabun'; font-size:13px; color:var(--ink);
+    border:1px solid var(--line); border-radius:8px; padding:8px 11px; background:#fff; }
+  .cf-field textarea{ resize:vertical; min-height:52px; }
+
   @media print{
     body{ background:#fff; }
     .sidebar,.toolbar,.drawer,.drawer-backdrop,.toast,.cdlg,.no-print{ display:none !important; }
@@ -189,6 +210,7 @@
   <div class="brand">🧾 QUOTATION</div>
   <nav>
     <button class="nav-item active" data-nav="docs" onclick="showView('docs')">📄 เอกสาร</button>
+    <button class="nav-item" data-nav="customers" onclick="showView('customers')">👥 ลูกค้า</button>
     <button class="nav-item" data-nav="tax" onclick="showView('tax')">🧮 ภาษี</button>
   </nav>
   <div class="side-foot">
@@ -267,9 +289,14 @@
 
   <div class="client">
     <div class="lbl">เรียน (ลูกค้า)</div>
-    <div data-field="client_html" data-html="1" contenteditable="true"><b>บริษัท น้ำตาล สหมิตร จำกัด (สำนักงานใหญ่)</b>
-      <div class="sub">เลขที่ 462/59 ถนนนางลิ้นจี่ แขวงช่องนนทรี เขตยานนาวา กรุงเทพมหานคร 10120</div>
-      <div class="sub">เลขผู้เสียภาษี 0105555006879</div>
+    <div class="cust-bar no-print">
+      <input id="custPick" class="cust-pick" list="custList" placeholder="🔍 เลือกลูกค้าเก่า / พิมพ์ค้นหา แล้วเลือก" onchange="onPickCustomer(this.value)">
+      <datalist id="custList"></datalist>
+      <button type="button" class="btn-cust-save" onclick="saveCurrentCustomer(true)">💾 บันทึกลูกค้า</button>
+    </div>
+    <div data-field="client_html" data-html="1" contenteditable="true"><b>ชื่อลูกค้า</b>
+      <div class="sub">ที่อยู่</div>
+      <div class="sub">เลขผู้เสียภาษี</div>
     </div>
   </div>
 
@@ -401,7 +428,41 @@
     </div>
   </div>
 </section>
+
+<!-- ============ หน้าลูกค้า (สมุดลูกค้า) ============ -->
+<section class="view" data-view="customers" hidden>
+  <div class="taxwrap">
+    <div class="tax-head">
+      <h2>👥 ลูกค้า</h2>
+      <button class="btn-addrow" onclick="openCustForm()">＋ เพิ่มลูกค้า</button>
+    </div>
+    <div class="tax-note">รายชื่อลูกค้าที่บันทึกไว้ — ในหน้าเอกสารกด <b>💾 บันทึกลูกค้า</b> หรือกดบันทึกเอกสาร ระบบจะเก็บลูกค้าให้อัตโนมัติ แล้วครั้งหน้าเลือกจากช่อง <b>🔍 เลือกลูกค้าเก่า</b> ได้เลย</div>
+    <input id="custSearch" class="cust-search no-print" placeholder="🔍 ค้นหาชื่อ / เลขผู้เสียภาษี" oninput="renderCustomers()">
+    <div class="tax-card" style="padding:6px 8px">
+      <table class="tax-table cust-table">
+        <thead><tr><th style="width:32%">ชื่อลูกค้า</th><th style="width:20%">เลขผู้เสียภาษี</th><th>ที่อยู่</th><th class="r" style="width:88px"></th></tr></thead>
+        <tbody id="custBody"><tr><td colspan="4" style="text-align:center;color:var(--muted)">กำลังโหลด…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</section>
 </main>
+
+<!-- ฟอร์มเพิ่ม/แก้ลูกค้า -->
+<dialog class="cdlg" id="custDlg">
+  <div class="cbody">
+    <h3 id="custDlgTitle" style="color:var(--clay)">เพิ่มลูกค้า</h3>
+    <input type="hidden" id="cf_id">
+    <div class="cf-field"><label>ชื่อบริษัท / ลูกค้า</label><input id="cf_name" placeholder="เช่น บริษัท น้ำตาล สหมิตร จำกัด"></div>
+    <div class="cf-field"><label>เลขผู้เสียภาษี</label><input id="cf_tax" placeholder="13 หลัก (ไม่บังคับ แต่ช่วยกันซ้ำ)"></div>
+    <div class="cf-field"><label>ที่อยู่</label><textarea id="cf_address" placeholder="ที่อยู่สำหรับออกเอกสาร"></textarea></div>
+    <div class="cf-field"><label>โทร (ไม่บังคับ)</label><input id="cf_phone" placeholder="เบอร์ติดต่อ"></div>
+  </div>
+  <div class="cbtns">
+    <button class="cancel" type="button" onclick="document.getElementById('custDlg').close()">ยกเลิก</button>
+    <button class="btn-folder" type="button" onclick="submitCustForm()">บันทึก</button>
+  </div>
+</dialog>
 </div><!-- /.app-shell -->
 
 <!-- กล่องวาดลายเซ็น -->
@@ -648,6 +709,7 @@
       const res=await fetch('/api/documents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       if(!res.ok){ const err=await res.json().catch(()=>({})); throw new Error(err.detail||('HTTP '+res.status)); }
       toast('บันทึกลง Sheet แล้ว ✓');
+      saveCurrentCustomer(false);  /* auto: เก็บลูกค้าเข้าสมุดด้วย (เงียบ) */
     }catch(e){ toast('บันทึกไม่ได้: '+e.message,true); }
   }
 
@@ -786,6 +848,7 @@
     document.querySelectorAll('.nav-item').forEach(n=>{ n.classList.toggle('active', n.dataset.nav===name); });
     try{ localStorage.setItem(KEY+':view', name); }catch(e){}
     if(name==='tax') refreshTax();
+    if(name==='customers') renderCustomers();
   }
   function initTaxYears(){
     const sel=document.getElementById('taxYear'); if(!sel || sel.options.length) return;
@@ -829,6 +892,121 @@
     }
   }
 
+  /* ================= สมุดลูกค้า ================= */
+  let _customers=[];
+  function custLabel(c){ return c.name + (c.tax_id ? ' — '+c.tax_id : ''); }
+  function clientBlock(){ return document.querySelector('[data-field="client_html"]'); }
+
+  /* ดึง {name,address,tax_id} จากกล่อง "เรียน (ลูกค้า)" แบบ best-effort
+     โครงที่แอปสร้าง: <b>ชื่อ</b> + .sub (ที่อยู่) + .sub (เลขภาษี) */
+  function extractCustomer(){
+    const el=clientBlock(); if(!el) return {name:'',address:'',tax_id:''};
+    const nameEl=el.querySelector('b');
+    const name=(nameEl?nameEl.innerText:el.innerText).trim();
+    let tax='', addrParts=[];
+    el.querySelectorAll('.sub').forEach(s=>{
+      const t=s.innerText.trim(); if(!t) return;
+      const run=t.match(/\d{13}/);              // เลขภาษี 13 หลักติดกัน
+      const digits=t.replace(/\D/g,'');         // เผื่อพิมพ์มีขีด/เว้นวรรค
+      if(!tax && (run || digits.length===13)){ tax = run ? run[0] : digits; }
+      else { addrParts.push(t); }
+    });
+    return {name, address:addrParts.join(' '), tax_id:tax};
+  }
+  function fillClientFromCustomer(c){
+    const el=clientBlock(); if(!el) return;
+    let html='<b>'+escapeHtml(c.name||'')+'</b>';
+    if(c.address) html+='<div class="sub">'+escapeHtml(c.address)+'</div>';
+    if(c.tax_id)  html+='<div class="sub">เลขผู้เสียภาษี '+escapeHtml(c.tax_id)+'</div>';
+    el.innerHTML=html;
+    el.dispatchEvent(new Event('input',{bubbles:true}));  /* ให้ draft auto-save จับ */
+  }
+  function onPickCustomer(label){
+    const c=_customers.find(x=>custLabel(x)===label);
+    const pick=document.getElementById('custPick');
+    if(c){ fillClientFromCustomer(c); toast('ดึงข้อมูล '+c.name+' แล้ว'); }
+    if(pick) pick.value='';
+  }
+  async function loadCustomers(){
+    try{
+      const r=await fetch('/api/customers'); if(!r.ok) return;
+      _customers=await r.json();
+    }catch(e){ return; }
+    const dl=document.getElementById('custList');
+    if(dl){ dl.innerHTML=''; _customers.forEach(c=>{ const o=document.createElement('option'); o.value=custLabel(c); dl.appendChild(o); }); }
+    renderCustomers();
+  }
+  /* บันทึกลูกค้าปัจจุบันจากกล่องเอกสาร — explicit=true คือกดปุ่มเอง (โชว์ toast), false คือ auto ตอน Save เอกสาร (เงียบ) */
+  async function saveCurrentCustomer(explicit){
+    const c=extractCustomer();
+    if(!c.name || c.name==='ชื่อลูกค้า'){ if(explicit) toast('ยังไม่มีชื่อลูกค้า',true); return; }
+    try{
+      const r=await fetch('/api/customers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(c)});
+      if(!r.ok){ const e=await r.json().catch(()=>({})); throw new Error(e.detail||('HTTP '+r.status)); }
+      await loadCustomers();
+      if(explicit) toast('บันทึกลูกค้า '+c.name+' แล้ว ✓');
+    }catch(e){ if(explicit) toast('บันทึกลูกค้าไม่ได้: '+e.message,true); }
+  }
+  /* ---- หน้าจัดการลูกค้า ---- */
+  function renderCustomers(){
+    const body=document.getElementById('custBody'); if(!body) return;
+    const q=(document.getElementById('custSearch')?.value||'').trim().toLowerCase();
+    const list=_customers.filter(c=> !q || (c.name+' '+(c.tax_id||'')).toLowerCase().includes(q));
+    if(!list.length){
+      body.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--muted)">'
+        +(_customers.length?'ไม่พบลูกค้าที่ค้นหา':'ยังไม่มีลูกค้า — กด “＋ เพิ่มลูกค้า” หรือบันทึกจากหน้าเอกสาร')+'</td></tr>';
+      return;
+    }
+    body.innerHTML='';
+    list.forEach(c=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML='<td>'+escapeHtml(c.name)+'</td><td>'+escapeHtml(c.tax_id||'-')
+        +'</td><td style="color:var(--muted);font-size:12px">'+escapeHtml(c.address||'-')+'</td>'
+        +'<td class="r" style="white-space:nowrap"></td>';
+      const td=tr.lastElementChild;
+      const be=document.createElement('button'); be.className='cust-mini'; be.textContent='✏️'; be.title='แก้ไข'; be.onclick=()=>editCustomer(c.id);
+      const bd=document.createElement('button'); bd.className='cust-mini del'; bd.textContent='🗑️'; bd.title='ลบ'; bd.onclick=()=>deleteCustomer(c.id);
+      td.append(be,bd);
+      body.appendChild(tr);
+    });
+  }
+  function openCustForm(c){
+    c=c||{};
+    document.getElementById('custDlgTitle').textContent=c.id?'แก้ไขลูกค้า':'เพิ่มลูกค้า';
+    document.getElementById('cf_id').value=c.id||'';
+    document.getElementById('cf_name').value=c.name||'';
+    document.getElementById('cf_tax').value=c.tax_id||'';
+    document.getElementById('cf_address').value=c.address||'';
+    document.getElementById('cf_phone').value=c.phone||'';
+    const d=document.getElementById('custDlg'); if(d.showModal){ d.showModal(); } else { d.setAttribute('open',''); }
+  }
+  function editCustomer(id){ const c=_customers.find(x=>String(x.id)===String(id)); if(c) openCustForm(c); }
+  async function submitCustForm(){
+    const payload={
+      id:document.getElementById('cf_id').value,
+      name:document.getElementById('cf_name').value.trim(),
+      tax_id:document.getElementById('cf_tax').value.trim(),
+      address:document.getElementById('cf_address').value.trim(),
+      phone:document.getElementById('cf_phone').value.trim(),
+    };
+    if(!payload.name){ toast('ยังไม่มีชื่อลูกค้า',true); return; }
+    try{
+      const r=await fetch('/api/customers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      if(!r.ok){ const e=await r.json().catch(()=>({})); throw new Error(e.detail||('HTTP '+r.status)); }
+      const d=document.getElementById('custDlg'); if(d.open) d.close();
+      await loadCustomers(); toast('บันทึกลูกค้าแล้ว ✓');
+    }catch(e){ toast('บันทึกไม่ได้: '+e.message,true); }
+  }
+  async function deleteCustomer(id){
+    const c=_customers.find(x=>String(x.id)===String(id)); if(!c) return;
+    if(!confirm('ลบลูกค้า "'+c.name+'" ออกจากสมุด?')) return;
+    try{
+      const r=await fetch('/api/customers/'+encodeURIComponent(id),{method:'DELETE'});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      await loadCustomers(); toast('ลบลูกค้าแล้ว');
+    }catch(e){ toast('ลบไม่ได้: '+e.message,true); }
+  }
+
   /* ---------- health dot ---------- */
   (async function(){
     try{ const r=await fetch('/api/health'); const j=await r.json();
@@ -841,6 +1019,7 @@
   checkUpdate();
   recalc();
   initTaxYears();
+  loadCustomers();   /* เติมรายชื่อลูกค้าให้ช่องเลือก + หน้าจัดการ */
   try{ showView(localStorage.getItem(KEY+':view')||'docs'); }catch(e){}
 </script>
 </body>
