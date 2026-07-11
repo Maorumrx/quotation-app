@@ -21,7 +21,9 @@ from .models import Customer, DocumentPayload, TaxSummary
 from .store import DocumentStore, StoreError
 
 # หน้า/asset ของ GitHub สำหรับเช็คเวอร์ชันใหม่
-_REPO = "Maorumrx/quotation-app"
+# ชี้ไป repo "สาธารณะเฉพาะไฟล์แจก" (quotation-releases) — โค้ดจริงอยู่ repo private แยกต่างหาก
+# ต้องเป็น repo public เพราะแอปยิงเช็คแบบไม่มี token และผู้ใช้โหลดไฟล์โดยไม่ต้อง login
+_REPO = "Maorumrx/quotation-releases"
 _LATEST_RELEASE_API = f"https://api.github.com/repos/{_REPO}/releases/latest"
 _RELEASES_PAGE = f"https://github.com/{_REPO}/releases/latest"
 

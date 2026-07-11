@@ -99,12 +99,16 @@ jobs:
 
   # เมื่อ push tag (v*): รวมไฟล์ทั้งสอง OS แล้วสร้าง GitHub Release
   # ให้ดาวน์โหลดได้ด้วยลิงก์สาธารณะถาวร (ไม่ต้อง login, ไม่หมดอายุ)
+  #
+  # publish ไปยัง repo "สาธารณะเฉพาะไฟล์แจก" (RELEASES_REPO) ไม่ใช่ repo นี้ (private)
+  # ต้องตั้ง secret RELEASES_TOKEN = PAT ที่มีสิทธิ์ Contents:write บน repo ปลายทาง
+  # (github.token ปริยายเขียนได้เฉพาะ repo ตัวเอง จึงข้ามไป repo อื่นไม่ได้)
   release:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    env:
+      RELEASES_REPO: Maorumrx/quotation-releases
     steps:
       - name: Download built artifacts
         uses: actions/download-artifact@v4
@@ -113,7 +117,7 @@ jobs:
 
       - name: Package assets & create release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
           set -e
@@ -135,9 +139,14 @@ jobs:
 
           ข้อมูลเก่าไม่หาย — เก็บแยกที่ ~/.quotation-manager/ ทับตัวโปรแกรมเก่าได้เลย
           EOF
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::ไม่มี secret RELEASES_TOKEN — ตั้งค่า PAT (Contents:write บน $RELEASES_REPO) ก่อน"; exit 1
+          fi
           # idempotent: ถ้ารัน workflow ซ้ำบน tag เดิม ลบ release เก่าก่อน (คง tag ไว้)
-          gh release delete "$TAG" -y --cleanup-tag=false --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+          gh release delete "$TAG" -y --cleanup-tag=false --repo "$RELEASES_REPO" 2>/dev/null || true
+          # --target main: ผูก tag ไว้กับ default branch ของ repo ปลายทาง (repo แจกมีแค่ README)
           gh release create "$TAG" "${assets[@]}" \
-            --repo "$GITHUB_REPOSITORY" \
+            --repo "$RELEASES_REPO" \
+            --target main \
             --title "$TAG" \
             --notes-file release-notes.md
