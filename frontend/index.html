@@ -14,6 +14,8 @@
     --clay:#8B6A52; --clay2:#C2A18C; --cream:#FBF8F3; --accent:#E8D5C4;
   }
   body{ font-family:'Sarabun',sans-serif; color:var(--ink); font-size:10pt; line-height:1.5; background:#EBE5DC; }
+  /* คงพื้นหลัง/สีตอนพิมพ์ (ไม่งั้นเบราว์เซอร์ตัดสีทิ้ง = เอกสารออกมาซีด) */
+  .page,.page *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   h1,h2,h3,.head{ font-family:'KoHo',sans-serif; }
 
   .toolbar{ position:sticky; top:0; z-index:99; background:var(--clay); color:#fff;
@@ -85,7 +87,8 @@
   .doctype{ text-align:right; min-width:170px; }
   .doctype .t{ font-family:'KoHo'; font-weight:700; font-size:17pt; color:var(--ink); }
   .doctype .meta{ font-size:8.7pt; color:var(--muted); margin-top:8px; line-height:1.9; }
-  #paidStamp{ display:none; margin-top:8px; border:2px solid #3E8E5A; color:#3E8E5A; font-family:'KoHo'; font-weight:700; font-size:11pt; padding:3px 0; border-radius:6px; letter-spacing:1px; }
+  /* ตรา "ชำระเงินแล้ว" — ข้อความสะอาด ๆ ไม่มีกรอบ (ดูเรียบหรูแบบเทมเพลตงานจริง) */
+  #paidStamp{ display:none; margin-top:10px; color:#2f7d4f; font-family:'KoHo'; font-weight:700; font-size:12.5pt; letter-spacing:.5px; }
 
   .client{ background:var(--cream); border:1px solid var(--line); border-radius:8px; padding:11px 14px; margin-bottom:12px; }
   .client .lbl{ font-family:'KoHo'; font-size:8pt; color:var(--clay); font-weight:600; letter-spacing:.6px; margin-bottom:3px; }
@@ -161,7 +164,7 @@
       <option value="receipt">✅ ใบเสร็จรับเงิน</option>
     </select>
     <button class="btn-save" onclick="saveDocument()">💾 บันทึกลง Sheet</button>
-    <button class="btn-print" onclick="window.print()">🖨️ PDF</button>
+    <button class="btn-print" onclick="savePdf()">📄 บันทึก PDF</button>
   </div>
 </div>
 
@@ -552,6 +555,23 @@
       if(!res.ok){ const err=await res.json().catch(()=>({})); throw new Error(err.detail||('HTTP '+res.status)); }
       toast('บันทึกลง Sheet แล้ว ✓');
     }catch(e){ toast('บันทึกไม่ได้: '+e.message,true); }
+  }
+
+  /* ---------- บันทึกเป็นไฟล์ PDF ----------
+     ในหน้าต่างแอป (pywebview): ให้ Python สร้าง PDF + เปิด save dialog เลือกที่เก็บได้เลย
+     ถ้าเปิดผ่านเบราว์เซอร์ธรรมดา (dev): ถอยไปใช้กล่องพิมพ์ของเบราว์เซอร์ (เลือก Save as PDF) */
+  async function savePdf(){
+    const bridge = window.pywebview && window.pywebview.api && window.pywebview.api.save_pdf;
+    if(!bridge){ toast('กำลังเปิดหน้าต่างพิมพ์ (เลือกปลายทางเป็น Save as PDF)'); setTimeout(()=>window.print(),300); return; }
+    const payload=collectDocument();
+    if(!payload.document.doc_no){ toast('ยังไม่มีเลขที่เอกสาร',true); return; }
+    toast('กำลังสร้าง PDF…');
+    try{
+      const res=await window.pywebview.api.save_pdf(payload);
+      if(res && res.ok){ toast(res.opened ? 'บันทึก PDF แล้ว ✓ กำลังเปิดไฟล์…' : 'บันทึก PDF แล้ว ✓'); }
+      else if(res && res.canceled){ /* ผู้ใช้กดยกเลิก — เงียบไว้ */ }
+      else { toast('บันทึก PDF ไม่ได้: '+((res&&res.error)||'ไม่ทราบสาเหตุ'),true); }
+    }catch(e){ toast('บันทึก PDF ไม่ได้: '+e,true); }
   }
 
   function applyDocument(payload){

@@ -32,7 +32,12 @@ cmd = [
     "--windowed",                     # ไม่มีหน้าต่าง console
     "--onefile",                      # รวมเป็นไฟล์เดียว คลิกเดียวเปิด
     "--name", APP_NAME,
-    "--add-data", f"frontend{SEP}frontend",   # ฝังหน้า HTML เข้าไป
+    "--add-data", f"frontend{SEP}frontend",   # ฝังหน้า HTML + ฟอนต์ไทย (frontend/fonts) เข้าไป
+
+    # xhtml2pdf/reportlab มีไฟล์ data + submodule ที่ PyInstaller มองไม่เห็นจาก import ตรง ๆ
+    # (เช่น reportlab/fonts, ตัว parser ของ xhtml2pdf) — เก็บให้ครบ ไม่งั้นสร้าง PDF ตอน build แล้วพัง
+    "--collect-all", "reportlab",
+    "--collect-all", "xhtml2pdf",
 
     # หมายเหตุสำคัญ: ห้ามใช้ --collect-all webview
     # PyInstaller มี hook ในตัวสำหรับ pywebview อยู่แล้ว (เก็บ DLL ของ WebView2 /
