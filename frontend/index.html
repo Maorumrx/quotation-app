@@ -831,11 +831,12 @@
   async function checkUpdate(){
     try{
       const r=await fetch('/api/check-update'); const j=await r.json();
+      if(j.error) console.warn('เช็คอัปเดตไม่สำเร็จ:', j.error);
       if(j.update_available && j.latest){
         document.getElementById('updateMsg').textContent='🎉 มีเวอร์ชันใหม่ v'+j.latest+' (คุณใช้ v'+j.current+') — ข้อมูลเก่าไม่หาย';
         document.getElementById('updateBar').classList.add('show');
       }
-    }catch(e){}
+    }catch(e){ console.warn('เช็คอัปเดตล้มเหลว:', e); }
   }
   async function openRelease(){
     try{ await fetch('/api/open-release',{method:'POST'}); toast('เปิดหน้าดาวน์โหลดในเบราว์เซอร์แล้ว'); }

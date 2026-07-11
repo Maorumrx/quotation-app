@@ -39,6 +39,10 @@ cmd = [
     "--collect-all", "reportlab",
     "--collect-all", "xhtml2pdf",
 
+    # certifi: ฝัง cacert.pem เข้าไปด้วย ไม่งั้น certifi.where() ชี้ไปไฟล์ที่ไม่มีใน
+    # onefile bundle -> เช็คอัปเดต (ยิง HTTPS ไป GitHub) เจอ CERTIFICATE_VERIFY_FAILED
+    "--collect-all", "certifi",
+
     # หมายเหตุสำคัญ: ห้ามใช้ --collect-all webview
     # PyInstaller มี hook ในตัวสำหรับ pywebview อยู่แล้ว (เก็บ DLL ของ WebView2 /
     # pythonnet บน Windows ให้เอง). --collect-all จะไป "บังคับ import" backend ทุกตัว

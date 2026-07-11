@@ -4,6 +4,7 @@ uvicorn>=0.29
 pywebview>=5.0
 pydantic>=2.7
 xhtml2pdf>=0.2.17   # สร้างไฟล์ PDF ฝั่ง server (เพียว Python + ดึง reportlab มาเอง ไม่มี native dep)
+certifi>=2024.2     # ใบรับรอง CA สำหรับยิง HTTPS ไป GitHub (เช็คอัปเดต) — ตอน frozen build หา CA เองไม่เจอ
 
 # ---- build only (CI ลงให้เอง) ----
 # pyinstaller

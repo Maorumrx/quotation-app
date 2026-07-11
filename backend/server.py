@@ -5,9 +5,11 @@ FastAPI: เสิร์ฟหน้า HTML + API สำหรับ list / loa
 """
 import json as _json
 import os
+import ssl
 import subprocess
 import sys
 import webbrowser
+from functools import lru_cache
 from urllib.request import Request, urlopen
 
 from fastapi import FastAPI, HTTPException
@@ -45,12 +47,31 @@ def _is_newer(latest: str, current: str) -> bool:
     return a > b
 
 
+@lru_cache(maxsize=1)
+def _ssl_context():
+    """SSL context ที่ชี้ไปยัง CA bundle ของ certifi (สร้างครั้งเดียว—cache ไว้)
+
+    ตอน frozen build (PyInstaller) ตัว ssl หา CA ของระบบไม่เจอ (โดยเฉพาะ macOS และ
+    Windows onefile) ทำให้ urlopen โยน CERTIFICATE_VERIFY_FAILED แล้วเช็คอัปเดตเงียบ
+    ตายทั้งที่มี release ใหม่ — ใช้ certifi มาเป็น CA เพื่อให้ยิง HTTPS สำเร็จทุก OS
+
+    fallback เฉพาะกรณี "ไม่มี certifi" (รันจากซอร์สที่ยังไม่ลง dep) เท่านั้น —
+    ถ้า certifi มีแต่ cacert.pem หาย ปล่อยให้ error โผล่ (จะได้รู้ว่า bundle พัง)
+    แทนที่จะเงียบกลับไปใช้ system CA ที่พังบน frozen build เหมือนบั๊กเดิม
+    """
+    try:
+        import certifi
+    except ImportError:
+        return ssl.create_default_context()
+    return ssl.create_default_context(cafile=certifi.where())
+
+
 def _fetch_latest_release():
     """คืน (tag, html_url) ของ release ล่าสุด หรือ (None, page) ถ้ายังไม่มี/เน็ตล่ม"""
     req = Request(_LATEST_RELEASE_API,
                   headers={"Accept": "application/vnd.github+json",
                            "User-Agent": "quotation-app"})
-    with urlopen(req, timeout=6) as r:
+    with urlopen(req, timeout=6, context=_ssl_context()) as r:
         data = _json.loads(r.read().decode("utf-8"))
     return (data.get("tag_name") or "").lstrip("v"), (data.get("html_url") or _RELEASES_PAGE)
 
