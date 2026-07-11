@@ -14,7 +14,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 
 from config import APP_VERSION, data_dir, load_config, resource_path
-from .models import DocumentPayload
+from .models import DocumentPayload, TaxSummary
 from .store import DocumentStore, StoreError
 
 # หน้า/asset ของ GitHub สำหรับเช็คเวอร์ชันใหม่
@@ -117,6 +117,15 @@ def next_no():
         return {"doc_no": _db.next_doc_no()}
     except StoreError as e:
         return JSONResponse({"doc_no": "", "message": str(e)}, status_code=200)
+
+
+@app.get("/api/tax/summary")
+def tax_summary(year: int):
+    """สรุปภาษีรายปี (พ.ศ.) — รายได้รวม + ภาษีหัก ณ ที่จ่ายแยกตามอัตรา จากใบเสร็จในปีนั้น"""
+    try:
+        return TaxSummary(**_db.tax_summary(year)).model_dump()
+    except StoreError as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/data-dir")

@@ -14,7 +14,7 @@ import os
 import re
 from typing import List, Optional
 
-from .models import DocumentPayload, DocumentSummary
+from .models import Document, DocumentPayload, DocumentSummary
 
 
 class StoreError(Exception):
@@ -163,6 +163,60 @@ class DocumentStore:
                 f"(อาจเปิดไฟล์ค้างอยู่): {', '.join(failed[:5])}"
             )
         return {"count": len(moved), "backup_dir": backup}
+
+    # ---------- tax summary ----------
+    @staticmethod
+    def _doc_be_year(doc: Document) -> Optional[int]:
+        """หาปี พ.ศ. ของเอกสาร:
+        1) จาก doc_date_iso (YYYY-MM-DD, ค.ศ.) -> +543
+        2) ถ้าไม่มี ให้ดึงปี พ.ศ. 4 หลัก (25xx) จากข้อความ doc_date
+        คืน None ถ้าหาไม่ได้ (เช่นวันที่ยังเป็น placeholder ___/___/____)
+        """
+        iso = (doc.doc_date_iso or "").strip()
+        m = re.match(r"^(\d{4})-\d{2}-\d{2}$", iso)
+        if m:
+            return int(m.group(1)) + 543
+        m = re.search(r"\b(25\d{2})\b", doc.doc_date or "")
+        if m:
+            return int(m.group(1))
+        return None
+
+    def tax_summary(self, year_be: int) -> dict:
+        """สรุปภาษีรายปี (พ.ศ.) จาก 'ใบเสร็จรับเงิน' ในปีนั้น
+        - ใช้ใบเสร็จเป็นเกณฑ์รับรู้รายได้ (รับเงินแล้ว) กันนับซ้ำกับใบแจ้งหนี้/ใบเสนอราคา
+        - รายได้รวม = ผลรวม subtotal (มูลค่างานก่อนหักภาษี)
+        - ภาษีหัก ณ ที่จ่าย แยกตามอัตรา = จัดกลุ่มตาม wht_rate
+        """
+        buckets: dict = {}   # rate -> {"base","wht","count"}
+        count = 0
+        total_income = total_wht = net_total = 0.0
+        for p in self._iter_payloads():
+            d = p.document
+            if d.doc_type != "receipt":
+                continue
+            if self._doc_be_year(d) != year_be:
+                continue
+            count += 1
+            total_income += d.subtotal
+            total_wht += d.wht_amount
+            net_total += d.grand_total
+            key = round(d.wht_rate, 2)
+            b = buckets.setdefault(key, {"base": 0.0, "wht": 0.0, "count": 0})
+            b["base"] += d.subtotal
+            b["wht"] += d.wht_amount
+            b["count"] += 1
+        by_rate = [
+            {"rate": r, "base": v["base"], "wht": v["wht"], "count": v["count"]}
+            for r, v in sorted(buckets.items())
+        ]
+        return {
+            "year_be": year_be,
+            "count": count,
+            "total_income": total_income,
+            "total_wht": total_wht,
+            "net_total": net_total,
+            "by_rate": by_rate,
+        }
 
     # ---------- next number ----------
     def next_doc_no(self) -> str:

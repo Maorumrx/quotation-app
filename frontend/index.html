@@ -184,8 +184,9 @@
 </head>
 <body>
 
+<div class="app-shell">
 <aside class="sidebar no-print">
-  <div class="brand">🧾 MAORU</div>
+  <div class="brand">🧾 QUOTATION</div>
   <nav>
     <button class="nav-item active" data-nav="docs" onclick="showView('docs')">📄 เอกสาร</button>
     <button class="nav-item" data-nav="tax" onclick="showView('tax')">🧮 ภาษี</button>
@@ -357,7 +358,7 @@
 </div>
 </section>
 
-<!-- ============ หน้าภาษี (โครง — ต่อข้อมูลจริงในสเต็ปถัดไป) ============ -->
+<!-- ============ หน้าภาษี (ต่อข้อมูลจริงจากใบเสร็จแล้ว) ============ -->
 <section class="view" data-view="tax" hidden>
   <div class="taxwrap">
     <div class="tax-head">
@@ -368,21 +369,20 @@
       </div>
     </div>
 
-    <div class="tax-note">โครงหน้านี้พร้อมแล้ว — ตัวเลขด้านล่างยังเป็น <b>ตัวอย่าง</b> ยังไม่ได้ต่อข้อมูลจริง<br>สเต็ปถัดไป: ดึงจากเอกสาร (ใบเสร็จ/ใบแจ้งหนี้) มาคำนวณอัตโนมัติ + เพิ่มรายการเองได้ + Export</div>
+    <div class="tax-note">ตัวเลขคำนวณจาก <b>ใบเสร็จรับเงิน</b> ในปีที่เลือกโดยอัตโนมัติ (นับเฉพาะใบเสร็จเพื่อกันนับซ้ำกับใบแจ้งหนี้)<br>รายจ่ายเอง+ Export สรุปภาษี จะตามมาในสเต็ปถัดไป</div>
 
     <div class="tax-card">
       <h3>รายได้รวม (รายปี)</h3>
-      <div class="tax-big">฿ —</div>
-      <div class="tax-placeholder">รวมมูลค่างานก่อนหักภาษี จากเอกสารทุกใบในปีที่เลือก</div>
+      <div class="tax-big" id="taxTotalIncome">฿ —</div>
+      <div class="tax-placeholder" id="taxIncomeNote">รวมมูลค่างานก่อนหักภาษี จากใบเสร็จรับเงินในปีที่เลือก</div>
     </div>
 
     <div class="tax-card">
       <h3>ภาษีหัก ณ ที่จ่าย — แยกตามอัตรา</h3>
       <table class="tax-table">
         <thead><tr><th>อัตรา</th><th class="r">ฐานภาษี</th><th class="r">ภาษีถูกหัก</th></tr></thead>
-        <tbody>
-          <tr><td>3%</td><td class="r">—</td><td class="r">—</td></tr>
-          <tr><td>5%</td><td class="r">—</td><td class="r">—</td></tr>
+        <tbody id="taxWhtBody">
+          <tr><td colspan="3" style="text-align:center;color:var(--muted)">— ยังไม่มีข้อมูล —</td></tr>
         </tbody>
       </table>
       <div class="tax-placeholder">ใช้ยอด WHT ที่บันทึกไว้ในแต่ละใบเสร็จ (เป็นเครดิตตอนยื่น ภ.ง.ด.90)</div>
@@ -402,6 +402,7 @@
   </div>
 </section>
 </main>
+</div><!-- /.app-shell -->
 
 <!-- กล่องวาดลายเซ็น -->
 <dialog class="cdlg" id="sigPad">
@@ -791,8 +792,42 @@
     const nowBE=new Date().getFullYear()+543;
     for(let y=nowBE; y>=nowBE-4; y--){ const o=document.createElement('option'); o.value=y; o.textContent=y; sel.appendChild(o); }
   }
-  /* ตอนนี้เป็นโครง — สเต็ปถัดไปจะ fetch /api/tax/summary?year=... มาเติมตัวเลขจริง */
-  function refreshTax(){ initTaxYears(); }
+  /* ดึงสรุปภาษีรายปีจริงจากใบเสร็จ (/api/tax/summary?year=พ.ศ.) มาเติมตัวเลข */
+  function rateLabel(r){ return (Math.round(r*100)/100)+'%'; }
+  async function refreshTax(){
+    initTaxYears();
+    const sel=document.getElementById('taxYear');
+    const year=(sel&&sel.value)||(new Date().getFullYear()+543);
+    const incomeEl=document.getElementById('taxTotalIncome');
+    const noteEl=document.getElementById('taxIncomeNote');
+    const body=document.getElementById('taxWhtBody');
+    incomeEl.textContent='฿ …';
+    body.innerHTML='<tr><td colspan="3" style="text-align:center;color:var(--muted)">กำลังโหลด…</td></tr>';
+    try{
+      const res=await fetch('/api/tax/summary?year='+encodeURIComponent(year));
+      if(!res.ok){ const err=await res.json().catch(()=>({})); throw new Error(err.detail||('HTTP '+res.status)); }
+      const s=await res.json();
+      incomeEl.textContent='฿ '+fmt(s.total_income||0);
+      noteEl.textContent='จากใบเสร็จรับเงิน '+(s.count||0)+' ใบ ในปี พ.ศ. '+year+' (มูลค่างานก่อนหักภาษี)';
+      if(!s.by_rate||!s.by_rate.length){
+        body.innerHTML='<tr><td colspan="3" style="text-align:center;color:var(--muted)">ยังไม่มีใบเสร็จในปีนี้</td></tr>';
+      }else{
+        body.innerHTML='';
+        s.by_rate.forEach(r=>{
+          const tr=document.createElement('tr');
+          tr.innerHTML='<td>'+rateLabel(r.rate)+'</td><td class="r">'+fmt(r.base||0)+'</td><td class="r">'+fmt(r.wht||0)+'</td>';
+          body.appendChild(tr);
+        });
+        const tot=document.createElement('tr');
+        tot.style.borderTop='2px solid var(--clay2)';
+        tot.innerHTML='<td><b>รวม</b></td><td class="r"><b>'+fmt(s.total_income||0)+'</b></td><td class="r"><b>'+fmt(s.total_wht||0)+'</b></td>';
+        body.appendChild(tot);
+      }
+    }catch(e){
+      incomeEl.textContent='฿ —';
+      body.innerHTML='<tr><td colspan="3" style="text-align:center;color:#9B4230">โหลดไม่ได้: '+escapeHtml(e.message)+'</td></tr>';
+    }
+  }
 
   /* ---------- health dot ---------- */
   (async function(){
