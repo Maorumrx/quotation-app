@@ -46,7 +46,7 @@ class Api:
         self._window = window
 
     def save_pdf(self, payload):
-        from backend.pdf import render_pdf
+        from backend.pdf import render_pdf, suggest_filename
 
         try:
             pdf_bytes = render_pdf(payload or {})
@@ -54,9 +54,8 @@ class Api:
             return {"ok": False, "error": f"สร้าง PDF ไม่ได้: {e}"}
 
         doc = (payload or {}).get("document") or {}
-        doc_no = str(doc.get("doc_no") or "document")
-        default_name = (doc_no.strip()
-                        .replace(" ", "_").replace("/", "-").replace("\\", "-")) + ".pdf"
+        # ชื่อไฟล์ = "หัวข้อบิล-ชื่อบริษัทลูกค้า" (เว้นวรรค -> '-') เช่น ใบเสนอราคา-บริษัท-น้ำตาล-สหมิตร-จำกัด
+        default_name = suggest_filename(doc) + ".pdf"
 
         result = self._window.create_file_dialog(
             webview.SAVE_DIALOG,

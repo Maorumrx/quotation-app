@@ -12,6 +12,7 @@ import datetime as _dt
 import json
 import os
 import re
+from html import unescape
 from typing import List, Optional
 
 from .models import Document, DocumentPayload, DocumentSummary
@@ -33,12 +34,18 @@ def _safe_name(doc_no: str) -> str:
 
 
 def _client_name_from_html(html: str) -> str:
-    """ดึงชื่อลูกค้าคร่าวๆ จาก client_html (เอาข้อความใน <b> ตัวแรก)"""
+    """ดึงชื่อลูกค้าคร่าวๆ จาก client_html (เอาข้อความใน <b> ตัวแรก)
+    ไม่เจอ <b> -> เอาเฉพาะบรรทัดแรก (กันที่อยู่/เลขภาษีมาปนตอนใช้ตั้งชื่อไฟล์/ลิสต์)
+    decode HTML entity ด้วย (&amp; &nbsp; ฯลฯ) ให้เป็นตัวอักษรจริง ไม่งั้นชื่อจะเพี้ยน"""
     if not html:
         return ""
     m = re.search(r"<b>(.*?)</b>", html, re.S)
-    raw = m.group(1) if m else html
-    return re.sub(r"<[^>]+>", "", raw).strip()
+    if m:
+        raw = m.group(1)
+    else:  # ไม่มีตัวหนา: ตัดที่ขึ้นบรรทัดใหม่ (<br>/</div>/</p>) เอาเฉพาะท่อนแรก
+        raw = re.split(r"<\s*(?:br|/div|/p)\b[^>]*>", html, maxsplit=1, flags=re.I)[0]
+    text = re.sub(r"<[^>]+>", "", raw)   # ตัด tag ทิ้ง
+    return unescape(text).strip()
 
 
 class DocumentStore:

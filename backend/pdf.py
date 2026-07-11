@@ -78,6 +78,31 @@ _DOCTYPES = {
                   "sL": "ผู้รับเงิน / วันที่", "sR": "ผู้จ่ายเงิน / วันที่"},
 }
 
+# อักขระที่ตั้งชื่อไฟล์ไม่ได้บน Windows/macOS (+ control chars) — แทนด้วย '-' กันคำติดกัน
+_ILLEGAL_FS = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
+_MAX_NAME_BYTES = 230  # กันชื่อยาวเกินลิมิตไฟล์ (ext4/APFS = 255 ไบต์; ไทย 3 ไบต์/ตัว) เผื่อ ".pdf"
+
+
+def suggest_filename(doc: dict) -> str:
+    """ชื่อไฟล์ PDF แนะนำ = "{หัวข้อบิล}-{ชื่อบริษัทลูกค้า}" โดยแทนช่องว่างด้วย '-'
+    เช่น ใบเสนอราคา + "บริษัท น้ำตาล สหมิตร จำกัด" -> "ใบเสนอราคา-บริษัท-น้ำตาล-สหมิตร-จำกัด"
+    (คืนค่า "ยังไม่ใส่ .pdf" — ให้ผู้เรียกเติมนามสกุลเอง). กันอักขระต้องห้ามให้ผู้รับเปิดไฟล์ได้ชัวร์"""
+    from backend.store import _client_name_from_html  # แหล่งเดียวกับลิสต์เอกสาร กันตรรกะลอกซ้ำ
+
+    dtype = str(doc.get("doc_type") or "quotation")
+    title = (_DOCTYPES.get(dtype) or _DOCTYPES["quotation"])["title"]
+    client = _client_name_from_html(doc.get("client_html") or "")
+    # ถ้าไม่มีชื่อลูกค้า ใช้เลขที่เอกสารต่อท้ายแทน จะได้ไม่ชนกันหลายไฟล์
+    tail = client or str(doc.get("doc_no") or "")
+    raw = "-".join(p for p in (title, tail) if p)
+
+    name = re.sub(r"\s+", "-", raw.strip())          # ช่องว่าง/แท็บ/ขึ้นบรรทัด -> '-' ก่อน
+    name = _ILLEGAL_FS.sub("-", name)                # อักขระต้องห้าม -> '-' (ไม่ลบทิ้ง)
+    name = re.sub(r"-{2,}", "-", name).strip("-. ")  # ยุบ '--' ซ้ำ + ตัดขอบ
+    # ตัดความยาวแบบนับ "ไบต์" (ไม่ใช่ตัวอักษร) — errors="ignore" กันตัดกลางตัวไทยแล้ว decode พัง
+    name = name.encode("utf-8")[:_MAX_NAME_BYTES].decode("utf-8", "ignore").strip("-. ")
+    return name or "document"
+
 
 # ---------- ตัวเลข ----------
 def _num(v) -> float:
