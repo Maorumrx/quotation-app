@@ -714,20 +714,34 @@
   }
 
   /* ---------- บันทึกเป็นไฟล์ PDF ----------
-     ในหน้าต่างแอป (pywebview): ให้ Python สร้าง PDF + เปิด save dialog เลือกที่เก็บได้เลย
-     ถ้าเปิดผ่านเบราว์เซอร์ธรรมดา (dev): ถอยไปใช้กล่องพิมพ์ของเบราว์เซอร์ (เลือก Save as PDF) */
-  async function savePdf(){
-    const bridge = window.pywebview && window.pywebview.api && window.pywebview.api.save_pdf;
-    if(!bridge){ toast('กำลังเปิดหน้าต่างพิมพ์ (เลือกปลายทางเป็น Save as PDF)'); setTimeout(()=>window.print(),300); return; }
-    const payload=collectDocument();
-    if(!payload.document.doc_no){ toast('ยังไม่มีเลขที่เอกสาร',true); return; }
-    toast('กำลังสร้าง PDF…');
-    try{
-      const res=await window.pywebview.api.save_pdf(payload);
-      if(res && res.ok){ toast(res.opened ? 'บันทึก PDF แล้ว ✓ กำลังเปิดไฟล์…' : 'บันทึก PDF แล้ว ✓'); }
-      else if(res && res.canceled){ /* ผู้ใช้กดยกเลิก — เงียบไว้ */ }
-      else { toast('บันทึก PDF ไม่ได้: '+((res&&res.error)||'ไม่ทราบสาเหตุ'),true); }
-    }catch(e){ toast('บันทึก PDF ไม่ได้: '+e,true); }
+     ใช้กล่องพิมพ์ของเว็บวิว/เบราว์เซอร์ (เลือกปลายทาง "Save as PDF") — ได้เอกสารที่หน้าตา
+     "เหมือนหน้าจอเป๊ะ" เพราะเรนเดอร์จาก HTML + print CSS ตัวเดียวกับที่เห็น (ไม่ใช่เทมเพลตแยก)
+     รองรับทั้ง Windows (WebView2) และ macOS (WKWebView) — pywebview จัดการ window.print() ให้
+     ตั้ง document.title ล่วงหน้า เพื่อให้ชื่อไฟล์ที่ Save as PDF เดา = "หัวข้อบิล-ชื่อบริษัทลูกค้า" */
+  function pdfFilename(){
+    const title=(document.getElementById('docTitle').textContent||'เอกสาร').trim();
+    let client=(extractCustomer().name||'').trim();
+    if(client==='ชื่อลูกค้า') client='';   // ยังไม่กรอกลูกค้า -> ไม่เอา placeholder มาตั้งชื่อ
+    if(!client) client=(document.getElementById('docNo').textContent||'').trim();
+    const raw=[title, client].filter(Boolean).join('-');
+    return (raw
+      .replace(/[\\/:*?"<>| -]+/g,'-')   // อักขระตั้งชื่อไฟล์ไม่ได้ -> '-'
+      .replace(/\s+/g,'-')                           // ช่องว่าง -> '-'
+      .replace(/-{2,}/g,'-').replace(/^[-. ]+|[-. ]+$/g,'')
+      .slice(0,66)) || 'เอกสาร';   // จำกัด ~66 ตัว (ไทย 3 ไบต์/ตัว ≈ 198 ไบต์ < ลิมิต 255)
+  }
+  let _titleBeforePrint=null;
+  function savePdf(){
+    if(_titleBeforePrint===null) _titleBeforePrint=document.title;  // เก็บ title จริงครั้งแรก (กันกดซ้ำเขียนทับ)
+    document.title=pdfFilename();          // ชื่อไฟล์ default ในกล่อง Save as PDF
+    const restore=()=>{
+      if(_titleBeforePrint!==null){ document.title=_titleBeforePrint; _titleBeforePrint=null; }
+      window.removeEventListener('afterprint', restore);
+    };
+    window.addEventListener('afterprint', restore);
+    setTimeout(restore, 60000);            // เผื่อ afterprint ไม่ยิง (บาง backend) คืน title เอง
+    toast('เลือกปลายทางเป็น "Save as PDF" ในหน้าต่างพิมพ์');
+    setTimeout(()=>window.print(), 150);
   }
 
   function applyDocument(payload){

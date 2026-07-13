@@ -34,11 +34,6 @@ cmd = [
     "--name", APP_NAME,
     "--add-data", f"frontend{SEP}frontend",   # ฝังหน้า HTML + ฟอนต์ไทย (frontend/fonts) เข้าไป
 
-    # xhtml2pdf/reportlab มีไฟล์ data + submodule ที่ PyInstaller มองไม่เห็นจาก import ตรง ๆ
-    # (เช่น reportlab/fonts, ตัว parser ของ xhtml2pdf) — เก็บให้ครบ ไม่งั้นสร้าง PDF ตอน build แล้วพัง
-    "--collect-all", "reportlab",
-    "--collect-all", "xhtml2pdf",
-
     # certifi: ฝัง cacert.pem เข้าไปด้วย ไม่งั้น certifi.where() ชี้ไปไฟล์ที่ไม่มีใน
     # onefile bundle -> เช็คอัปเดต (ยิง HTTPS ไป GitHub) เจอ CERTIFICATE_VERIFY_FAILED
     "--collect-all", "certifi",
