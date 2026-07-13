@@ -218,6 +218,21 @@ def _build_html(payload: dict) -> str:
     paid_html = (f'<div class="paid">&#10003; ชำระเงินแล้ว</div>'
                  if meta["paid"] else '')
 
+    # ราคาที่เสนอ / ข้อตกลง (2 คอลัมน์) + บรรทัดรับรอง — ให้ตรงกับหน้าจอ (เป็น text ล้วน)
+    # escape ก่อน แล้วค่อยแปลง \n -> <br> กันข้อความหลายบรรทัดหดเหลือบรรทัดเดียวใน PDF
+    def _txt(v):
+        return escape((v or "").strip()).replace("\n", "<br>")
+    pt = _txt(doc.get("price_terms"))
+    ag = _txt(doc.get("agreement"))
+    terms_html = (
+        f'<table class="terms"><tr>'
+        f'<td width="50%"><div class="k">ราคาที่เสนอ</div><div>{pt}</div></td>'
+        f'<td width="50%"><div class="k">ข้อตกลง</div><div>{ag}</div></td>'
+        f'</tr></table>'
+    ) if (pt or ag) else ''
+    assurance = _txt(doc.get("assurance"))
+    assure_html = f'<div class="assure">{assurance}</div>' if assurance else ''
+
     # ช่องทางชำระเงิน / ลายเซ็น จะโชว์เมื่อมีข้อมูลเท่านั้น (เอกสารบางแบบอาจไม่ต้องมี)
     pay = _sanitize_html((doc.get("payment_info") or "").strip())
     pay_html = (
@@ -257,6 +272,10 @@ def _build_html(payload: dict) -> str:
     .baht {{ background:#FBF8F3; border-left:3px solid #C2A18C; padding:8px 12px;
         font-size:9pt; margin:12px 0; }}
     .baht b {{ font-family:'KoHo'; color:#8B6A52; }}
+    table.terms {{ width:100%; border-collapse:collapse; margin:6px 0 4px; }}
+    table.terms td {{ vertical-align:top; padding-right:16px; font-size:9pt; }}
+    /* ไม่ใส่ italic: ฟอนต์ไทยที่ฝังมีแต่ตัวตรง italic จะทำให้ไทยกลายเป็นกล่องว่าง — ใช้สีจางแยกแทน */
+    .assure {{ color:#8A7E73; font-size:8.7pt; margin:4px 0 12px; }}
     .sigln {{ border-top:1px solid #33302B; margin:4px 20px 4px; }}
     </style></head><body>
 
@@ -303,6 +322,9 @@ def _build_html(payload: dict) -> str:
     </tr></table>
 
     <div class="baht">จำนวนเงิน (ตัวอักษร): <b>{escape(baht)}</b></div>
+
+    {terms_html}
+    {assure_html}
 
     {pay_html}
 
