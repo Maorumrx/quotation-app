@@ -25,9 +25,9 @@ jobs:
       PYTHONIOENCODING: "utf-8"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -82,7 +82,7 @@ jobs:
       # และเก็บ log เต็มไว้ดาวน์โหลดได้ด้วย
       - name: Upload build log on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: build-log-${{ matrix.os }}
           path: |
@@ -91,7 +91,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.artifact }}
           path: out/*
@@ -111,7 +111,7 @@ jobs:
       RELEASES_REPO: Maorumrx/quotation-releases
     steps:
       - name: Download built artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           path: artifacts
 
