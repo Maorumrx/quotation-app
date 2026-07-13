@@ -725,7 +725,7 @@
     if(!client) client=(document.getElementById('docNo').textContent||'').trim();
     const raw=[title, client].filter(Boolean).join('-');
     return (raw
-      .replace(/[\\/:*?"<>| -]+/g,'-')   // อักขระตั้งชื่อไฟล์ไม่ได้ -> '-'
+      .replace(/[\\/:*?"<>|]+/g,'-')   // อักขระตั้งชื่อไฟล์ไม่ได้ -> '-'
       .replace(/\s+/g,'-')                           // ช่องว่าง -> '-'
       .replace(/-{2,}/g,'-').replace(/^[-. ]+|[-. ]+$/g,'')
       .slice(0,66)) || 'เอกสาร';   // จำกัด ~66 ตัว (ไทย 3 ไบต์/ตัว ≈ 198 ไบต์ < ลิมิต 255)
