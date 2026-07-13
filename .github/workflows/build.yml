@@ -82,7 +82,7 @@ jobs:
       # และเก็บ log เต็มไว้ดาวน์โหลดได้ด้วย
       - name: Upload build log on failure
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: build-log-${{ matrix.os }}
           path: |
@@ -91,7 +91,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact }}
           path: out/*
