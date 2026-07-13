@@ -17,7 +17,7 @@ APP_FOLDER = ".quotation-manager"
 
 # เวอร์ชันของแอป — ใช้เทียบกับ GitHub Release ล่าสุดเพื่อแจ้งเตือนอัปเดต
 # ตอนออก build ใหม่: bump ค่านี้ให้ตรงกับ tag ที่จะ push (เช่น v1.0.5 -> "1.0.5")
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 
 _DEFAULTS = {
     "data_dir": "",   # ว่าง = ใช้ ~/.quotation-manager/data
